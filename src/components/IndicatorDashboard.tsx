@@ -709,7 +709,7 @@ export default function IndicatorDashboard() {
                 <Landmark className="h-4 w-4 text-indigo-600" />
                 Articulação: PL do Excedente Energético
               </h3>
-              <p className="text-xs text-slate-500">Tramitação no Congresso para venda direta de energia limpa do Executivo</p>
+              <p className="text-xs text-slate-500">Tramitação no Congresso para autorizar pessoa física a comercializar excedente de energia limpa</p>
             </div>
             <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
               surplusPLApproved 
@@ -721,7 +721,7 @@ export default function IndicatorDashboard() {
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            <strong>Estratégia Nacional:</strong> Propõe autorizar o Executivo a comercializar diretamente o excedente elétrico das matrizes limpas. O excedente de receita gerado é injetado no superávit nacional, <strong className="text-slate-900">destruindo o complexo "arco-íris tarifário" da ANEEL</strong> (substituindo todas as bandeiras vermelhas/amarelas por tarifas fixas baratas).
+            <strong>Estratégia Nacional:</strong> Propõe autorizar o cliente pessoa física a comercializar diretamente o excedente elétrico das matrizes limpas. O excedente de receita gerado é injetado no superávit nacional, <strong className="text-slate-900">destruindo o complexo "arco-íris tarifário" da ANEEL</strong> (substituindo todas as bandeiras vermelhas/amarelas por tarifas fixas baratas).
           </p>
 
           {/* Support percentages */}
@@ -836,7 +836,7 @@ export default function IndicatorDashboard() {
             ) : (
               <div className="flex-1 flex flex-col gap-2">
                 <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 text-[11px] rounded-xl font-medium leading-relaxed">
-                  🎉 <strong>Lei de Transição Tarifária Aprovada!</strong> Com a aprovação do PL de Excedente de Energia via Executivo, o crescimento estrutural foi acelerado em <strong>+0.4% a.a.</strong> e a complexidade tarifária da ANEEL foi substituída por tarifas fixas e baratas.
+                  🎉 <strong>Lei de Transição Tarifária Aprovada!</strong> Com a aprovação do PL de Excedente de Energia por Pessoas Físicas, o crescimento estrutural foi acelerado em <strong>+0.4% a.a.</strong> e a complexidade tarifária da ANEEL foi substituída por tarifas fixas e baratas.
                 </div>
                 <button
                   onClick={handleResetVote}

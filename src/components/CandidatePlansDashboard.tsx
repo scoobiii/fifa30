@@ -17,7 +17,11 @@ import {
   Landmark,
   Zap,
   Users,
-  Activity
+  Activity,
+  Battery,
+  Moon,
+  Sparkles,
+  Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -42,6 +46,12 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [solarChamberVotes, setSolarChamberVotes] = useState<number>(0);
   const [solarSenateVotes, setSolarSenateVotes] = useState<number>(0);
   const [solarLog, setSolarLog] = useState<string>("Pronto para iniciar a articulação com o Congresso Nacional.");
+
+  // Estados para o Simulador de Armazenamento Solar Diurno (Baterias) e Gestão de Pico
+  const [hasSolarStorage, setHasSolarStorage] = useState<boolean>(true);
+  const [batteryCapacity, setBatteryCapacity] = useState<number>(10); // em kWh
+  const [dailyPeakUsage, setDailyPeakUsage] = useState<number>(6); // consumo em kWh das 18h às 21h
+  const [solarPanelsCapacity, setSolarPanelsCapacity] = useState<number>(5); // kWp de geração solar instalada
 
   const handleSolarNegotiate = (actionType: "agro" | "icms" | "popular") => {
     if (actionType === "agro") {
@@ -707,6 +717,274 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Solar Storage & Peak-Shaving Simulator */}
+      <div className="mt-12 pt-10 border-t border-slate-100">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+          <div>
+            <span className="text-xs font-bold text-amber-500 uppercase tracking-wider font-mono block mb-1">
+              Armazenamento Inteligente & Demanda de Pico
+            </span>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Battery className="h-6 w-6 text-emerald-500 fill-emerald-100" />
+              Gestão de Pico (Peak Shaving) com Bateria Solar de Baixo Custo
+            </h3>
+            <p className="text-xs text-slate-500 max-w-2xl mt-1">
+              Armazene energia solar abundante gerada de graça durante o dia (custo zero de captação) e descarregue automaticamente no horário de pico (18h às 21h), zerando as tarifas inflacionadas e aliviando 100% da rede elétrica.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setHasSolarStorage(!hasSolarStorage)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer border ${
+                hasSolarStorage
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+              }`}
+            >
+              {hasSolarStorage ? "🔋 ARMAZENAMENTO ATIVADO" : "🔌 USANDO APENAS A REDE"}
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Calculation Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+          
+          {/* Simulation Inputs (Col 4) */}
+          <div className="lg:col-span-4 bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col gap-5 justify-between">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-slate-400" />
+                Parâmetros de Consumo & Grid
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Ajuste os valores para simular os ganhos econômicos e a estabilidade de rede em tempo real.
+              </p>
+            </div>
+
+            {/* Input sliders */}
+            <div className="space-y-4">
+              {/* Solar Generation slider */}
+              <div>
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="font-semibold text-slate-700">Capacidade Solar (kWp)</span>
+                  <span className="font-mono text-amber-500 font-bold">{solarPanelsCapacity} kWp</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="15"
+                  step="0.5"
+                  value={solarPanelsCapacity}
+                  onChange={(e) => setSolarPanelsCapacity(parseFloat(e.target.value))}
+                  className="w-full accent-amber-500 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Gera aprox. {Math.round(solarPanelsCapacity * 4.2)} kWh diários de energia limpa livre de custos.
+                </span>
+              </div>
+
+              {/* Battery Capacity slider */}
+              <div>
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="font-semibold text-slate-700">Capacidade da Bateria (kWh)</span>
+                  <span className="font-mono text-emerald-500 font-bold">{batteryCapacity} kWh</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="30"
+                  step="1"
+                  value={batteryCapacity}
+                  onChange={(e) => setBatteryCapacity(parseInt(e.target.value))}
+                  className="w-full accent-emerald-500 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Armazena o excedente de baixo custo gerado ao longo do dia para o horário noturno.
+                </span>
+              </div>
+
+              {/* Peak usage slider */}
+              <div>
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="font-semibold text-slate-700">Consumo no Horário de Pico (kWh)</span>
+                  <span className="font-mono text-indigo-500 font-bold">{dailyPeakUsage} kWh</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  step="0.5"
+                  value={dailyPeakUsage}
+                  onChange={(e) => setDailyPeakUsage(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-500 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Demanda total do domicílio no horário crítico (18h às 21h).
+                </span>
+              </div>
+            </div>
+
+            {/* Note about low-cost LFP battery */}
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-[10px] text-slate-500 leading-relaxed">
+              <span className="font-bold text-slate-700 block mb-0.5 flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-amber-500 fill-amber-300" />
+                Como o Armazenamento Ficou Barato?
+              </span>
+              O PL de Descentralização isenta impostos de importação sobre células de LFP e estimula parcerias público-privadas de montagem local, reduzindo em até 65% o custo de aquisição do armazenamento.
+            </div>
+          </div>
+
+          {/* Scenario Comparison (Col 8) */}
+          <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Scenario A: Without Storage */}
+            <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+              !hasSolarStorage 
+                ? "bg-rose-50/40 border-rose-200/80 ring-2 ring-rose-200/50" 
+                : "bg-white border-slate-100"
+            }`}>
+              <div>
+                <span className="text-[10px] font-bold text-rose-500 font-mono uppercase tracking-wider block mb-1">Cenário A</span>
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  Sem Bateria (Rede Tradicional)
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed mt-1">
+                  O consumidor compra energia cara no pico e joga fora o excesso solar gerado de dia porque não tem onde guardar.
+                </p>
+
+                {/* Metrics */}
+                <div className="mt-5 space-y-3.5">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">TARIFA NO HORÁRIO DE PICO (18h-21h)</span>
+                    <span className="text-lg font-black text-rose-600 font-mono">
+                      R$ 1,45 / kWh
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">CUSTO DO HORÁRIO DE PICO (MENSAL)</span>
+                    <span className="text-base font-bold text-slate-900 font-mono">
+                      R$ {Math.round(dailyPeakUsage * 1.45 * 30).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">ESTRESSE DE TRANSMISSÃO DE PICO</span>
+                    <span className="text-xs font-bold text-amber-600 flex items-center gap-1 mt-0.5">
+                      🔴 100% dependente da distribuidora convencional
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-100/80 text-[10px] text-slate-400">
+                Sujeito às bandeiras tarifárias de escassez da ANEEL.
+              </div>
+            </div>
+
+            {/* Scenario B: With Solar Storage */}
+            <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+              hasSolarStorage 
+                ? "bg-emerald-50/50 border-emerald-200 ring-2 ring-emerald-200/50" 
+                : "bg-white border-slate-100"
+            }`}>
+              <div>
+                <span className="text-[10px] font-bold text-emerald-500 font-mono uppercase tracking-wider block mb-1">Cenário B</span>
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500 fill-amber-300 animate-pulse" />
+                  Com Armazenamento Diurno
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed mt-1">
+                  Armazena de graça durante o pico solar do meio-dia e injeta localmente às 18h. A tarifa externa de pico é pulverizada.
+                </p>
+
+                {/* Metrics */}
+                <div className="mt-5 space-y-3.5">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">TARIFA NO HORÁRIO DE PICO (18h-21h)</span>
+                    <span className={`text-lg font-black font-mono flex items-center gap-1.5 ${
+                      batteryCapacity >= dailyPeakUsage ? "text-emerald-600" : "text-amber-600"
+                    }`}>
+                      R$ {Math.max(0, dailyPeakUsage - batteryCapacity) === 0 ? "0,00" : ( (Math.max(0, dailyPeakUsage - batteryCapacity) / dailyPeakUsage) * 1.45 ).toFixed(2)} / kWh
+                      {batteryCapacity >= dailyPeakUsage && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded uppercase font-bold animate-pulse">
+                          Zerada!
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">CUSTO DO HORÁRIO DE PICO (MENSAL)</span>
+                    <span className="text-base font-bold text-slate-900 font-mono flex items-center gap-1.5">
+                      R$ {Math.round(Math.max(0, dailyPeakUsage - batteryCapacity) * 1.45 * 30).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {batteryCapacity >= dailyPeakUsage && (
+                        <span className="text-xs text-emerald-600 font-bold">(100% de Autonomia)</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block">ECONOMIA MENSAL REALIZADA</span>
+                    <span className="text-sm font-bold text-emerald-600 font-mono flex items-center gap-1">
+                      🟢 R$ {Math.round((dailyPeakUsage * 1.45 - Math.max(0, dailyPeakUsage - batteryCapacity) * 1.45) * 30).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} economizados/mês
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-100/80 text-[10px] text-emerald-700 font-semibold bg-emerald-50/60 p-2.5 rounded-lg flex items-center justify-between">
+                <span>🌱 Emissões salvas: {Math.round(Math.min(batteryCapacity, dailyPeakUsage) * 30 * 0.25)} kg CO2/mês</span>
+                <span>Payback Estimado: 2.4 anos</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Visual Battery State Animation flow */}
+        {hasSolarStorage && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="max-w-md">
+                <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-wider block mb-1">Status do Ciclo Energético Diário</span>
+                <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Activity className="h-4 w-4 text-emerald-400" />
+                  Visualização do Fluxo de Carga e Alívio de Pico
+                </h4>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  Durante o período solar abundante (10h-15h), os painéis geram até {solarPanelsCapacity} kW de potência instantânea. O excesso de geração recarrega a bateria LFP. À noite (18h-21h), a bateria assume 100% da carga, limpando o grid da distribuidora e neutralizando a tarifa inflacionada.
+                </p>
+              </div>
+
+              {/* Battery Graphic with animation */}
+              <div className="flex items-center gap-6 bg-slate-950 p-4 rounded-2xl border border-slate-800 w-full md:w-auto justify-center">
+                <div className="text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block mb-2">Ciclo de Carga</span>
+                  <div className="flex items-center gap-2">
+                    <Sun className="h-5 w-5 text-amber-400 fill-amber-300 animate-pulse" />
+                    <span className="h-1.5 w-8 bg-amber-500/30 rounded-full overflow-hidden block">
+                      <span className="h-full bg-amber-400 w-full block animate-pulse"></span>
+                    </span>
+                    <Battery className="h-10 w-10 text-emerald-400 fill-emerald-950/40" />
+                    <span className="h-1.5 w-8 bg-emerald-500/30 rounded-full overflow-hidden block">
+                      <span className="h-full bg-emerald-400 w-full block animate-pulse"></span>
+                    </span>
+                    <Moon className="h-5 w-5 text-indigo-400 fill-indigo-900/40" />
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono mt-2.5">
+                    Eficiência do Ciclo de Armazenamento: 94.5% (LFP de Baixa Degradabilidade)
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
