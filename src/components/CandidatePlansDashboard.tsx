@@ -12,7 +12,12 @@ import {
   TrendingUp,
   Award,
   Volume2,
-  VolumeX
+  VolumeX,
+  Sun,
+  Landmark,
+  Zap,
+  Users,
+  Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -26,6 +31,91 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [isSpeaking, setIsSpeaking] = useState(false);
   
   const currentCandidate = candidates.find(c => c.id === selectedId) || candidates[0];
+
+  // Estados para a simulação do PL da Descentralização Solar e Venda de Excedente
+  const [solarChamberSupport, setSolarChamberSupport] = useState<number>(48);
+  const [solarSenateSupport, setSolarSenateSupport] = useState<number>(44);
+  const [solarPoliticalCapital, setSolarPoliticalCapital] = useState<number>(3);
+  const [solarPLApproved, setSolarPLApproved] = useState<boolean>(false);
+  const [solarIsVoting, setSolarIsVoting] = useState<boolean>(false);
+  const [solarVoteProgressStep, setSolarVoteProgressStep] = useState<number>(0); // 0=idle, 1=voting chamber, 2=voting senate, 3=approved, 4=rejected
+  const [solarChamberVotes, setSolarChamberVotes] = useState<number>(0);
+  const [solarSenateVotes, setSolarSenateVotes] = useState<number>(0);
+  const [solarLog, setSolarLog] = useState<string>("Pronto para iniciar a articulação com o Congresso Nacional.");
+
+  const handleSolarNegotiate = (actionType: "agro" | "icms" | "popular") => {
+    if (actionType === "agro") {
+      if (solarPoliticalCapital < 1) return;
+      setSolarPoliticalCapital(prev => prev - 1);
+      setSolarChamberSupport(prev => Math.min(prev + 16, 100));
+      setSolarSenateSupport(prev => Math.min(prev + 8, 100));
+      setSolarLog("Pactuou incentivos regulatórios para a microgeração fotovoltaica de produtores rurais. Forte avanço com a bancada do Agro (+16% na Câmara, +8% no Senado)!");
+    } else if (actionType === "icms") {
+      if (solarPoliticalCapital < 1) return;
+      setSolarPoliticalCapital(prev => prev - 1);
+      setSolarChamberSupport(prev => Math.min(prev + 8, 100));
+      setSolarSenateSupport(prev => Math.min(prev + 20, 100));
+      setSolarLog("Compensou os Estados com créditos federais para perdas locais de ICMS na autoprodução. Excelente avanço no Senado (+20%) e Câmara (+8%)!");
+    } else if (actionType === "popular") {
+      setSolarPoliticalCapital(prev => prev + 1);
+      setSolarChamberSupport(prev => Math.min(prev + 10, 100));
+      setSolarSenateSupport(prev => Math.min(prev + 10, 100));
+      setSolarLog("Disparou uma campanha digital em defesa do consumidor/prossumidor solar. Mobilização popular gerou forte pressão orgânica nos parlamentares (+10% suporte em ambas as casas, +1 Token de Capital Político).");
+    }
+  };
+
+  const handleStartSolarVote = () => {
+    if (solarIsVoting) return;
+    setSolarIsVoting(true);
+    setSolarVoteProgressStep(1);
+    setSolarLog("Votação iniciada! Os 513 deputados federais estão registrando seus votos na Câmara...");
+
+    setTimeout(() => {
+      const variance = Math.floor(Math.random() * 17) - 8; // -8% to +8%
+      const finalChamberSupport = Math.max(10, Math.min(98, solarChamberSupport + variance));
+      const votes = Math.round(5.13 * finalChamberSupport);
+      setSolarChamberVotes(votes);
+
+      if (votes >= 257) {
+        setSolarVoteProgressStep(2);
+        setSolarLog(`Aprovado na Câmara! Recebeu ${votes} votos favoráveis (necessário 257). Enviando imediatamente à comissão de infraestrutura do Senado Federal...`);
+        
+        setTimeout(() => {
+          const sVariance = Math.floor(Math.random() * 13) - 6;
+          const finalSenateSupport = Math.max(10, Math.min(98, solarSenateSupport + sVariance));
+          const sVotes = Math.round(0.81 * finalSenateSupport);
+          setSolarSenateVotes(sVotes);
+
+          if (sVotes >= 41) {
+            setSolarVoteProgressStep(3);
+            setSolarPLApproved(true);
+            setSolarLog(`Histórico! O PL de Descentralização Energética foi aprovado no Senado com ${sVotes} votos favoráveis (necessário 41). O arco-íris tarifário da ANEEL foi quebrado, garantindo o direito de venda livre do excedente solar!`);
+          } else {
+            setSolarVoteProgressStep(4);
+            setSolarLog(`Rejeitado no Senado Federal! Obteve apenas ${sVotes} votos favoráveis dos 41 necessários. O PL de venda do excedente solar foi arquivado.`);
+          }
+          setSolarIsVoting(false);
+        }, 1500);
+
+      } else {
+        setSolarVoteProgressStep(4);
+        setSolarLog(`Rejeitado na Câmara dos Deputados! Obteve apenas ${votes} votos favoráveis dos 257 necessários. O projeto foi arquivado.`);
+        setSolarIsVoting(false);
+      }
+    }, 1500);
+  };
+
+  const handleResetSolarVote = () => {
+    setSolarChamberSupport(48);
+    setSolarSenateSupport(44);
+    setSolarPoliticalCapital(3);
+    setSolarPLApproved(false);
+    setSolarIsVoting(false);
+    setSolarVoteProgressStep(0);
+    setSolarChamberVotes(0);
+    setSolarSenateVotes(0);
+    setSolarLog("Votação e coalizão legislativa resetadas. Pronto para nova articulação.");
+  };
 
   // Stop speech when changing candidate
   useEffect(() => {
@@ -328,6 +418,295 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
           </AnimatePresence>
         </div>
 
+      </div>
+
+      {/* Legislative Solar Microgeneration Surplus Sale Module */}
+      <div className="mt-12 pt-10 border-t border-slate-100">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+          <div>
+            <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider font-mono block mb-1">
+              Proposição Legislativa & Descentralização
+            </span>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Sun className="h-6 w-6 text-amber-500 fill-amber-300" />
+              PL do Marco Regulatório da Microgeração Solar
+            </h3>
+            <p className="text-xs text-slate-500 max-w-2xl mt-1">
+              Uma análise aprofundada dos mecanismos de articulação política entre o Poder Executivo, a Câmara dos Deputados e o Senado Federal para viabilizar a venda direta do excedente solar por cidadãos e pequenos negócios, demolindo o oligopólio tarifário.
+            </p>
+          </div>
+          
+          <div className="flex-shrink-0">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold border ${
+              solarPLApproved 
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                : "bg-amber-50 text-amber-700 border-amber-200 animate-pulse"
+            }`}>
+              <Zap className={`h-3.5 w-3.5 ${solarPLApproved ? "text-emerald-500" : "text-amber-500"}`} />
+              {solarPLApproved ? "PL APROVADO & VIGENTE" : "PL EM TRAMITAÇÃO (CÂMARA / SENADO)"}
+            </span>
+          </div>
+        </div>
+
+        {/* Three-Way Power Interaction Flow Diagram */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Executive Role */}
+          <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 relative overflow-hidden">
+            <div className="absolute top-2 right-2 text-slate-100 font-mono text-3xl font-black select-none">01</div>
+            <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2 mb-2 relative z-10">
+              <span className="p-1 bg-indigo-50 text-indigo-600 rounded">
+                <Activity className="h-4 w-4" />
+              </span>
+              Poder Executivo (Autor)
+            </h4>
+            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider font-mono block mb-2">Papel: Proposição & Articulação</span>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Formula o projeto de lei de descentralização e lidera a coordenação política. Utiliza recursos técnicos (como a liberação de emendas para redes de transmissão e compensações interestaduais) como moedas de diálogo para construir maioria no Congresso.
+            </p>
+            <div className="mt-3 text-[10px] text-slate-400 font-mono border-t border-slate-200/50 pt-2 flex items-center justify-between">
+              <span>Alvo: Destruição do Arco-íris Tarifário</span>
+              <span>Foco: Prossumidores</span>
+            </div>
+          </div>
+
+          {/* Chamber Role */}
+          <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 relative overflow-hidden">
+            <div className="absolute top-2 right-2 text-slate-100 font-mono text-3xl font-black select-none">02</div>
+            <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2 mb-2 relative z-10">
+              <span className="p-1 bg-purple-50 text-purple-600 rounded">
+                <Users className="h-4 w-4" />
+              </span>
+              Câmara dos Deputados
+            </h4>
+            <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider font-mono block mb-2">Papel: Defesa do Consumidor & Voto Popular</span>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Primeira etapa de aprovação (mínimo de 257 de 513 votos). Concentra o debate no direito do consumidor residencial/comercial de vender energia livremente à rede elétrica, enfrentando a forte oposição das corporações distribuidoras de energia convencionais.
+            </p>
+            <div className="mt-3 text-[10px] text-slate-400 font-mono border-t border-slate-200/50 pt-2 flex items-center justify-between">
+              <span>Mínimo: 257 deputados</span>
+              <span>Foco: Geração livre</span>
+            </div>
+          </div>
+
+          {/* Senate Role */}
+          <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 relative overflow-hidden">
+            <div className="absolute top-2 right-2 text-slate-100 font-mono text-3xl font-black select-none">03</div>
+            <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2 mb-2 relative z-10">
+              <span className="p-1 bg-amber-50 text-amber-600 rounded">
+                <Landmark className="h-4 w-4" />
+              </span>
+              Senado Federal
+            </h4>
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider font-mono block mb-2">Papel: Pacto Federativo & ICMS Estadual</span>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Casa revisora final (mínimo de 41 de 81 votos). Analisa a estabilidade de transmissão do grid e pactua compensações sobre a potencial perda de arrecadação de ICMS de energia pelos Estados por conta da autoprodução solar massiva.
+            </p>
+            <div className="mt-3 text-[10px] text-slate-400 font-mono border-t border-slate-200/50 pt-2 flex items-center justify-between">
+              <span>Mínimo: 41 senadores</span>
+              <span>Foco: Compensação fiscal</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Simulator Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-slate-950 text-slate-100 rounded-3xl p-6 lg:p-8 relative overflow-hidden">
+          {/* Subtle background glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+          {/* Controls and States (Col 5) */}
+          <div className="lg:col-span-5 flex flex-col gap-5">
+            <div>
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider font-mono block mb-1">
+                Painel de Controle de Coalizão
+              </span>
+              <h4 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
+                <Activity className="h-4.5 w-4.5 text-indigo-400" />
+                Estratégias de Negociação
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                Use seu capital político remanescente para articular apoio estratégico nas comissões e plenários. Cada decisão muda os votos projetados.
+              </p>
+            </div>
+
+            {/* Capital Político Indicator */}
+            <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span className="text-[9px] font-mono font-bold text-slate-400 uppercase block">Capital de Articulação</span>
+                <span className="text-base font-black text-white font-mono">
+                  {solarPoliticalCapital} {solarPoliticalCapital === 1 ? "Token" : "Tokens"}
+                </span>
+              </div>
+              <div className="flex gap-1 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                {[1, 2, 3, 4].map((tokenNum) => (
+                  <span 
+                    key={tokenNum}
+                    className={`h-3.5 w-3.5 rounded-full block transition-all ${
+                      tokenNum <= solarPoliticalCapital 
+                        ? "bg-amber-500 shadow-sm shadow-amber-500/30 animate-pulse" 
+                        : "bg-slate-800"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Negotiation Options */}
+            <div className="flex flex-col gap-2.5">
+              {/* Agro */}
+              <button
+                disabled={solarPoliticalCapital < 1 || solarPLApproved || solarIsVoting}
+                onClick={() => handleSolarNegotiate("agro")}
+                className="w-full text-left p-3 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-start gap-2.5"
+              >
+                <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg mt-0.5 font-mono text-xs font-bold">1T</span>
+                <div>
+                  <span className="text-xs font-bold text-white block">Regulação Fotovoltaica Rural</span>
+                  <span className="text-[10px] text-slate-400 leading-normal block mt-0.5">Concede marcos favoráveis para o agronegócio autoprodutor (+16% Câmara, +8% Senado)</span>
+                </div>
+              </button>
+
+              {/* ICMS */}
+              <button
+                disabled={solarPoliticalCapital < 1 || solarPLApproved || solarIsVoting}
+                onClick={() => handleSolarNegotiate("icms")}
+                className="w-full text-left p-3 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-start gap-2.5"
+              >
+                <span className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg mt-0.5 font-mono text-xs font-bold">1T</span>
+                <div>
+                  <span className="text-xs font-bold text-white block">Pacto Federativo de ICMS</span>
+                  <span className="text-[10px] text-slate-400 leading-normal block mt-0.5">Subsidia parcialmente perdas tributárias dos estados na autoprodução (+8% Câmara, +20% Senado)</span>
+                </div>
+              </button>
+
+              {/* Popular Campaign */}
+              <button
+                disabled={solarPLApproved || solarIsVoting}
+                onClick={() => handleSolarNegotiate("popular")}
+                className="w-full text-left p-3 rounded-xl border border-amber-900/40 hover:border-amber-800 bg-amber-950/20 hover:bg-amber-950/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-start gap-2.5"
+              >
+                <span className="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg mt-0.5 font-mono text-xs font-bold">+1T</span>
+                <div>
+                  <span className="text-xs font-bold text-amber-300 block">Campanha de Mobilização Popular</span>
+                  <span className="text-[10px] text-amber-100/60 leading-normal block mt-0.5">Ativa pressão cívica digital contra as grandes distribuidoras (+10% em ambas as casas, recupera 1 Token)</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Voting Visualizers and Projection (Col 7) */}
+          <div className="lg:col-span-7 flex flex-col gap-6 justify-between bg-slate-900/50 border border-slate-800 p-6 rounded-2xl">
+            <div>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono block mb-1">
+                Projeção Legislativa em Tempo Real
+              </span>
+              <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                <Landmark className="h-4 w-4 text-emerald-400" />
+                Mapeamento de Apoio no Congresso
+              </h4>
+            </div>
+
+            {/* Progress Gauges */}
+            <div className="space-y-4">
+              {/* Chamber gauge */}
+              <div>
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="font-semibold text-slate-300">Apoio na Câmara dos Deputados</span>
+                  <span className="font-mono text-indigo-400 font-bold">{solarChamberSupport}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                  <div 
+                    className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                    style={{ width: `${solarChamberSupport}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+                  <span>Est. Votos: {Math.round(5.13 * solarChamberSupport)} / 513</span>
+                  <span className="font-mono">Meta: 257 (Simples)</span>
+                </div>
+              </div>
+
+              {/* Senate gauge */}
+              <div>
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="font-semibold text-slate-300">Apoio no Senado Federal</span>
+                  <span className="font-mono text-purple-400 font-bold">{solarSenateSupport}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                  <div 
+                    className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                    style={{ width: `${solarSenateSupport}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+                  <span>Est. Votos: {Math.round(0.81 * solarSenateSupport)} / 81</span>
+                  <span className="font-mono">Meta: 41 (Simples)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Log Window */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+              <span className="text-[9px] font-mono font-bold text-slate-500 uppercase block mb-1">Registro de Articulação</span>
+              <p className="text-xs font-mono text-slate-300 leading-relaxed h-14 overflow-y-auto">
+                {solarLog}
+              </p>
+            </div>
+
+            {/* Dynamic Status / Actions */}
+            <div className="space-y-3">
+              {solarVoteProgressStep === 0 && (
+                <button
+                  onClick={handleStartSolarVote}
+                  disabled={solarIsVoting}
+                  className="w-full py-3 px-5 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-indigo-950/50"
+                >
+                  <Zap className="h-4 w-4" />
+                  Iniciar Tramitação Legislativa do PL
+                </button>
+              )}
+
+              {solarIsVoting && (
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
+                  <div className="animate-spin inline-block h-5 w-5 border-2 border-indigo-400 border-t-transparent rounded-full mb-2"></div>
+                  <p className="text-xs font-mono text-indigo-300">Votação nominal em andamento no Congresso Nacional...</p>
+                </div>
+              )}
+
+              {solarVoteProgressStep === 3 && (
+                <div className="bg-emerald-950/40 border border-emerald-800/80 p-4 rounded-2xl flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <strong className="text-emerald-400 text-xs">🎉 LEI DE DESCENTRALIZAÇÃO ENERGÉTICA APROVADA!</strong>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-normal">
+                    O projeto de lei foi plenamente sancionado! Agora, clientes de microgeração solar residencial e comercial podem vender livremente seu excedente diretamente de volta para a rede com crédito líquido na conta. O arco-íris de bandeiras da ANEEL foi quebrado, reduzindo custos para toda a sociedade!
+                  </p>
+                  <button
+                    onClick={handleResetSolarVote}
+                    className="text-[9px] font-mono font-bold text-slate-400 hover:text-white underline mt-1 text-left cursor-pointer"
+                  >
+                    Resetar Articulação para Nova Simulação
+                  </button>
+                </div>
+              )}
+
+              {solarVoteProgressStep === 4 && (
+                <div className="bg-rose-950/40 border border-rose-800/80 p-4 rounded-2xl flex flex-col gap-2">
+                  <strong className="text-rose-400 text-xs">❌ PROJETO REJEITADO & ARQUIVADO</strong>
+                  <p className="text-xs text-slate-300 leading-normal">
+                    O projeto não conseguiu votos suficientes das bancadas devido ao lobby corporativo das grandes distribuidoras. Tente pactuar mais apoios ou mobilizar suporte popular e tente novamente.
+                  </p>
+                  <button
+                    onClick={handleResetSolarVote}
+                    className="text-xs text-indigo-400 font-bold hover:underline text-left cursor-pointer mt-1"
+                  >
+                    Tentar Novamente (Reiniciar Articulação)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

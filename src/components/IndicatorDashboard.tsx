@@ -107,6 +107,92 @@ export default function IndicatorDashboard() {
   const [selectedIdeology, setSelectedIdeology] = useState<"republicanos" | "democratas" | "custom">("custom");
   const [isSpeakingMinistry, setIsSpeakingMinistry] = useState<string | null>(null);
 
+  // Legislative Articulation (PL do Excedente de Energia via Senado & Câmara)
+  const [surplusPLApproved, setSurplusPLApproved] = useState<boolean>(false);
+  const [chamberSupport, setChamberSupport] = useState<number>(45); // 45% initial support
+  const [senateSupport, setSenateSupport] = useState<number>(42); // 42% initial support
+  const [isVoting, setIsVoting] = useState<boolean>(false);
+  const [voteProgressStep, setVoteProgressStep] = useState<number>(0); // 0=idle, 1=voting chamber, 2=voting senate, 3=approved, 4=rejected
+  const [chamberVotes, setChamberVotes] = useState<number>(0);
+  const [senateVotes, setSenateVotes] = useState<number>(0);
+  const [politicalCapital, setPoliticalCapital] = useState<number>(2); // 2 negotiation tokens
+  const [logMessage, setLogMessage] = useState<string>("");
+
+  const handleNegotiate = (type: "emendas" | "desestatizacao" | "compromisso") => {
+    if (type === "emendas") {
+      if (politicalCapital < 1) return;
+      setPoliticalCapital(prev => prev - 1);
+      setChamberSupport(prev => Math.min(prev + 18, 100));
+      setSenateSupport(prev => Math.min(prev + 10, 100));
+      setLogMessage("Liberou R$ 15M em emendas técnicas para transmissão limpa. Apoio legislativo ampliado!");
+    } else if (type === "desestatizacao") {
+      if (politicalCapital < 1) return;
+      setPoliticalCapital(prev => prev - 1);
+      setChamberSupport(prev => Math.min(prev + 10, 100));
+      setSenateSupport(prev => Math.min(prev + 22, 100));
+      setLogMessage("Pactuou desoneração da infraestrutura fotovoltaica. Fortaleceu apoio no Senado!");
+    } else if (type === "compromisso") {
+      setPoliticalCapital(prev => prev + 2);
+      setChamberSupport(prev => Math.max(prev - 8, 0));
+      setSenateSupport(prev => Math.max(prev - 5, 0));
+      setLogMessage("Acordou concessões de segundo escalão. Capital Político recarregado (+2), mas houve leve ruído nas bancadas.");
+    }
+  };
+
+  const handleStartVote = () => {
+    if (isVoting) return;
+    setIsVoting(true);
+    setVoteProgressStep(1);
+    setLogMessage("Iniciando votação nominal na Câmara dos Deputados (Necessário 257 de 513 votos)...");
+
+    setTimeout(() => {
+      // Chamber vote count
+      const variance = Math.floor(Math.random() * 21) - 10; // -10 to +10
+      const calculatedSupport = Math.max(5, Math.min(95, chamberSupport + variance));
+      const votes = Math.round(5.13 * calculatedSupport);
+      setChamberVotes(votes);
+
+      if (votes >= 257) {
+        setVoteProgressStep(2);
+        setLogMessage(`Aprovado na Câmara dos Deputados com ${votes} votos favoráveis! Enviando ao Senado Federal (Necessário 41 de 81)...`);
+        
+        setTimeout(() => {
+          // Senate vote count
+          const sVariance = Math.floor(Math.random() * 15) - 7;
+          const sCalculatedSupport = Math.max(5, Math.min(95, senateSupport + sVariance));
+          const sVotes = Math.round(0.81 * sCalculatedSupport);
+          setSenateVotes(sVotes);
+
+          if (sVotes >= 41) {
+            setVoteProgressStep(3);
+            setSurplusPLApproved(true);
+            setLogMessage(`Histórico! PL aprovado no Senado com ${sVotes} votos! O arco-íris tarifário da ANEEL foi destruído: todas as bandeiras foram abolidas!`);
+          } else {
+            setVoteProgressStep(4);
+            setLogMessage(`Rejeitado no Senado Federal com apenas ${sVotes} votos favoráveis (Necessário 41). O PL foi arquivado.`);
+          }
+          setIsVoting(false);
+        }, 1500);
+
+      } else {
+        setVoteProgressStep(4);
+        setLogMessage(`Rejeitado na Câmara dos Deputados com apenas ${votes} votos favoráveis (Necessário 257). O PL foi arquivado.`);
+        setIsVoting(false);
+      }
+    }, 1500);
+  };
+
+  const handleResetVote = () => {
+    setVoteProgressStep(0);
+    setChamberVotes(0);
+    setSenateVotes(0);
+    setChamberSupport(45);
+    setSenateSupport(42);
+    setPoliticalCapital(2);
+    setSurplusPLApproved(false);
+    setLogMessage("Votação resetada. Pronto para nova articulação do PL de Excedente Energético.");
+  };
+
   // Load live SELIC from our Central Bank API integration
   useEffect(() => {
     async function fetchSelic() {
@@ -293,8 +379,11 @@ export default function IndicatorDashboard() {
     } else if (selectedIdeology === "democratas") {
       rate += IDEOLOGY_PRESETS.democratas.growthModifier;
     }
+    if (surplusPLApproved) {
+      rate += 0.4;
+    }
     return parseFloat(rate.toFixed(1));
-  }, [currentScenario, selectedIdeology]);
+  }, [currentScenario, selectedIdeology, surplusPLApproved]);
 
   const yearsToTarget = useMemo(() => {
     const current = 9500;
@@ -496,6 +585,12 @@ export default function IndicatorDashboard() {
                   <span className="text-sm font-bold text-teal-300 font-mono">{yearsToTarget}</span>
                 </div>
               </div>
+
+              {/* Maricá RJ Historical Benchmark */}
+              <div className="mt-3 pt-2.5 border-t border-slate-800/80 text-[10px] text-slate-400 leading-relaxed bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/40">
+                <span className="text-emerald-400 font-black block mb-0.5">💡 BENCHMARK NACIONAL (ACELERAÇÃO):</span>
+                O município de <strong className="text-white">Maricá - RJ</strong> saltou de um PIB per capita de ~US$ 2.000 para mais de <strong className="text-emerald-400">US$ 130.000</strong> entre 2010 e 2021 impulsionado pela canalização estratégica de royalties de petróleo, provando que quebras estruturais aceleradas de renda média são factíveis sob governança orientada.
+              </div>
             </div>
           </div>
 
@@ -603,6 +698,154 @@ export default function IndicatorDashboard() {
               <span className="w-2.5 h-2.5 border border-dashed border-slate-400 rounded-full"></span>
               <span>Metas 2045 (100)</span>
             </div>
+          </div>
+        </div>
+
+        {/* Legislative Articulation & Energy PL Card */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col gap-4 mt-6">
+          <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+            <div>
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Landmark className="h-4 w-4 text-indigo-600" />
+                Articulação: PL do Excedente Energético
+              </h3>
+              <p className="text-xs text-slate-500">Tramitação no Congresso para venda direta de energia limpa do Executivo</p>
+            </div>
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+              surplusPLApproved 
+                ? "bg-emerald-100 text-emerald-800 border border-emerald-200" 
+                : "bg-amber-100 text-amber-800 border border-amber-200 animate-pulse"
+            }`}>
+              {surplusPLApproved ? "APROVADO & SANCIONADO" : "EM TRAMITAÇÃO"}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            <strong>Estratégia Nacional:</strong> Propõe autorizar o Executivo a comercializar diretamente o excedente elétrico das matrizes limpas. O excedente de receita gerado é injetado no superávit nacional, <strong className="text-slate-900">destruindo o complexo "arco-íris tarifário" da ANEEL</strong> (substituindo todas as bandeiras vermelhas/amarelas por tarifas fixas baratas).
+          </p>
+
+          {/* Support percentages */}
+          <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100/60">
+            <div>
+              <div className="flex justify-between items-center text-xs mb-1">
+                <span className="font-semibold text-slate-700">Câmara dos Deputados</span>
+                <span className="font-mono text-indigo-600 font-bold">{chamberSupport}%</span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                  style={{ width: `${chamberSupport}%` }}
+                ></div>
+              </div>
+              <span className="text-[9px] text-slate-400 font-mono mt-1 block text-center bg-white border border-slate-100 rounded p-1">Est. Votos: {Math.round(5.13 * chamberSupport)} / 513 <br/> (Mínimo: 257)</span>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center text-xs mb-1">
+                <span className="font-semibold text-slate-700">Senado Federal</span>
+                <span className="font-mono text-purple-600 font-bold">{senateSupport}%</span>
+              </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                  style={{ width: `${senateSupport}%` }}
+                ></div>
+              </div>
+              <span className="text-[9px] text-slate-400 font-mono mt-1 block text-center bg-white border border-slate-100 rounded p-1">Est. Votos: {Math.round(0.81 * senateSupport)} / 81 <br/> (Mínimo: 41)</span>
+            </div>
+          </div>
+
+          {/* Political Capital Tokens & Actions */}
+          <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50">
+            <div className="flex justify-between items-center mb-2.5 text-xs">
+              <span className="font-bold text-slate-700">Capital de Negociação:</span>
+              <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-100">
+                {[...Array(3)].map((_, i) => (
+                  <span 
+                    key={i} 
+                    className={`h-2 w-2 rounded-full ${
+                      i < politicalCapital 
+                        ? "bg-amber-500 shadow-sm shadow-amber-500/20" 
+                        : "bg-slate-200"
+                    }`}
+                  />
+                ))}
+                <strong className="ml-1 font-mono text-amber-600 text-[10px]">({politicalCapital} Tokens)</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                disabled={politicalCapital < 1 || surplusPLApproved || isVoting}
+                onClick={() => handleNegotiate("emendas")}
+                className="text-[9px] font-bold py-1.5 px-2 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/20 rounded-lg text-slate-700 disabled:opacity-50 transition-all cursor-pointer"
+                title="Oferecer emendas técnicas municipais para transmissão de energia limpa (-1 Token, +18% Câmara, +10% Senado)"
+              >
+                Liberar Emendas
+              </button>
+              <button
+                disabled={politicalCapital < 1 || surplusPLApproved || isVoting}
+                onClick={() => handleNegotiate("desestatizacao")}
+                className="text-[9px] font-bold py-1.5 px-2 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50/20 rounded-lg text-slate-700 disabled:opacity-50 transition-all cursor-pointer"
+                title="Pactuar desoneração tributária para microgeradores (-1 Token, +10% Câmara, +22% Senado)"
+              >
+                Pacto Solar
+              </button>
+              <button
+                disabled={surplusPLApproved || isVoting}
+                onClick={() => handleNegotiate("compromisso")}
+                className="text-[9px] font-bold py-1.5 px-1 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 rounded-lg text-amber-900 disabled:opacity-50 transition-all cursor-pointer"
+                title="Aceitar cargos de segundo escalão e compromissos locais (+2 Tokens, -8% Câmara, -5% Senado)"
+              >
+                Concessão (+2T)
+              </button>
+            </div>
+          </div>
+
+          {/* Voting Animation Area / Status */}
+          {logMessage && (
+            <div className="text-[10px] font-mono bg-slate-900 text-slate-300 p-2.5 rounded-xl border border-slate-800 leading-normal whitespace-pre-wrap">
+              {logMessage}
+            </div>
+          )}
+
+          {/* Interaction Buttons */}
+          <div className="flex gap-2">
+            {!surplusPLApproved ? (
+              <button
+                disabled={isVoting}
+                onClick={handleStartVote}
+                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                  isVoting 
+                    ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed" 
+                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/10"
+                }`}
+              >
+                {isVoting ? (
+                  <>
+                    <span className="animate-spin inline-block h-3 w-3 border-2 border-slate-400 border-t-transparent rounded-full" />
+                    Votando no Congresso...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-3.5 w-3.5" />
+                    Iniciar Votação Nominal do PL
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="flex-1 flex flex-col gap-2">
+                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 text-[11px] rounded-xl font-medium leading-relaxed">
+                  🎉 <strong>Lei de Transição Tarifária Aprovada!</strong> Com a aprovação do PL de Excedente de Energia via Executivo, o crescimento estrutural foi acelerado em <strong>+0.4% a.a.</strong> e a complexidade tarifária da ANEEL foi substituída por tarifas fixas e baratas.
+                </div>
+                <button
+                  onClick={handleResetVote}
+                  className="py-1 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-mono font-bold rounded-lg cursor-pointer text-center"
+                >
+                  Resetar Articulação para Testar Novamente
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
