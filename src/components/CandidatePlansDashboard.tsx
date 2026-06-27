@@ -21,9 +21,113 @@ import {
   Battery,
   Moon,
   Sparkles,
-  Clock
+  Clock,
+  Search,
+  Filter
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+
+export interface Legislator {
+  id: string;
+  type: "deputy" | "senator";
+  name: string;
+  party: string;
+  state: string;
+  baseLobby: "Distribuidoras" | "Big Techs" | "Agronegócio" | "Social/Clima" | "Fisiológico";
+  financialSupport: string;
+  vote: "SIM" | "NÃO" | "ABSTENÇÃO";
+}
+
+const generateLegislators = (): Legislator[] => {
+  const firstNames = ["Arthur", "Beto", "Camila", "Daniel", "Eduardo", "Felipe", "Gleisi", "Helder", "Igor", "Jandira", "Kim", "Luiza", "Marcelo", "Nikolas", "Orlando", "Priscila", "Rodrigo", "Sâmia", "Tabata", "Valdemar", "Zeca", "Aécio", "Bruna", "Ciro", "Davi", "Eliane", "Flávio", "Guilherme", "Hugo", "Isabela", "João", "Katia", "Leonardo", "Marina", "Newton", "Otávio", "Paulo", "Regina", "Simone", "Teresa", "Ulysses", "Valéria", "Walter"];
+  const lastNames = ["Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida", "Lopes", "Soares", "Barbosa", "Vieira", "Teixeira", "Aruda", "Guimarães", "Cardoso", "Melo"];
+  const states = ["SP", "RJ", "MG", "BA", "PR", "RS", "PE", "CE", "SC", "GO", "MA", "PA", "DF", "AM", "ES", "PB", "RN", "AL", "MT", "MS", "SE", "TO", "PI", "AC", "RO", "RR", "AP"];
+  const parties = ["CENTRO-PP", "ESQUERDA-PT", "DIREITA-PL", "CENTRO-PSD", "CENTRO-MDB", "DIREITA-NOVO", "DIREITA-REP", "ESQUERDA-PSOL", "CENTRO-UNIÃO", "CENTRO-PSDB"];
+  
+  const list: Legislator[] = [];
+  
+  // 513 Deputies
+  for (let i = 1; i <= 513; i++) {
+    const fName = firstNames[i % firstNames.length];
+    const lName = lastNames[(i * 3) % lastNames.length];
+    const lName2 = lastNames[(i * 7) % lastNames.length];
+    const name = `Dep. ${fName} ${lName} ${lName2}`;
+    const state = states[i % states.length];
+    const party = parties[(i * 11) % parties.length];
+    
+    // Distribute lobbies logically
+    let baseLobby: "Distribuidoras" | "Big Techs" | "Agronegócio" | "Social/Clima" | "Fisiológico" = "Fisiológico";
+    if (i % 5 === 0) baseLobby = "Distribuidoras";
+    else if (i % 5 === 1) baseLobby = "Big Techs";
+    else if (i % 5 === 2) baseLobby = "Agronegócio";
+    else if (i % 5 === 3) baseLobby = "Social/Clima";
+    
+    let financialSupport = "";
+    if (baseLobby === "Distribuidoras") {
+      financialSupport = `R$ ${120 + (i % 8) * 20}k do Lobby das Distribuidoras (Abradee)`;
+    } else if (baseLobby === "Big Techs") {
+      financialSupport = `R$ ${150 + (i % 10) * 25}k do Consórcio de Big Techs & Data Centers`;
+    } else if (baseLobby === "Agronegócio") {
+      financialSupport = `R$ ${100 + (i % 6) * 30}k da Bancada Ruralista / FPA`;
+    } else if (baseLobby === "Social/Clima") {
+      financialSupport = "Base Social (Prossumidores & Clima)";
+    } else {
+      financialSupport = `R$ ${(i % 5) * 35}k de Doações Individuais / Fisiológico`;
+    }
+    
+    list.push({
+      id: `dep-${i}`,
+      type: "deputy",
+      name,
+      party,
+      state,
+      baseLobby,
+      financialSupport,
+      vote: "ABSTENÇÃO"
+    });
+  }
+  
+  // 81 Senators
+  for (let i = 1; i <= 81; i++) {
+    const fName = firstNames[(i * 5) % firstNames.length];
+    const lName = lastNames[(i * 13) % lastNames.length];
+    const name = `Sen. ${fName} ${lName}`;
+    const state = states[i % states.length];
+    const party = parties[(i * 7) % parties.length];
+    
+    let baseLobby: "Distribuidoras" | "Big Techs" | "Agronegócio" | "Social/Clima" | "Fisiológico" = "Fisiológico";
+    if (i % 4 === 0) baseLobby = "Distribuidoras";
+    else if (i % 4 === 1) baseLobby = "Big Techs";
+    else if (i % 4 === 2) baseLobby = "Agronegócio";
+    else if (i % 4 === 3) baseLobby = "Social/Clima";
+    
+    let financialSupport = "";
+    if (baseLobby === "Distribuidoras") {
+      financialSupport = `R$ ${250 + (i % 5) * 50}k do Lobby das Distribuidoras (Abradee)`;
+    } else if (baseLobby === "Big Techs") {
+      financialSupport = `R$ ${300 + (i % 6) * 60}k do Consórcio de Big Techs & Data Centers`;
+    } else if (baseLobby === "Agronegócio") {
+      financialSupport = `R$ ${200 + (i % 4) * 80}k da Bancada Ruralista (FPA)`;
+    } else if (baseLobby === "Social/Clima") {
+      financialSupport = "Base Popular e Clima";
+    } else {
+      financialSupport = "Fundo Eleitoral Partidário";
+    }
+    
+    list.push({
+      id: `sen-${i}`,
+      type: "senator",
+      name,
+      party,
+      state,
+      baseLobby,
+      financialSupport,
+      vote: "ABSTENÇÃO"
+    });
+  }
+  
+  return list;
+};
 
 interface CandidatePlansDashboardProps {
   candidates: Candidate[];
@@ -46,6 +150,15 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [solarChamberVotes, setSolarChamberVotes] = useState<number>(0);
   const [solarSenateVotes, setSolarSenateVotes] = useState<number>(0);
   const [solarLog, setSolarLog] = useState<string>("Pronto para iniciar a articulação com o Congresso Nacional.");
+  const [bigTechLobbyActive, setBigTechLobbyActive] = useState<boolean>(false);
+
+  // Estados para rastrear deputados e senadores individualmente
+  const [legislators, setLegislators] = useState<Legislator[]>(() => generateLegislators());
+  const [legislatorSearch, setLegislatorSearch] = useState<string>("");
+  const [legislatorFilterParty, setLegislatorFilterParty] = useState<string>("ALL");
+  const [legislatorFilterVote, setLegislatorFilterVote] = useState<string>("ALL");
+  const [legislatorFilterType, setLegislatorFilterType] = useState<string>("ALL");
+  const [selectedLegislator, setSelectedLegislator] = useState<Legislator | null>(null);
 
   // Estados para o Simulador de Armazenamento Solar Diurno (Baterias) e Gestão de Pico
   const [hasSolarStorage, setHasSolarStorage] = useState<boolean>(true);
@@ -53,7 +166,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [dailyPeakUsage, setDailyPeakUsage] = useState<number>(6); // consumo em kWh das 18h às 21h
   const [solarPanelsCapacity, setSolarPanelsCapacity] = useState<number>(5); // kWp de geração solar instalada
 
-  const handleSolarNegotiate = (actionType: "agro" | "icms" | "popular") => {
+  const handleSolarNegotiate = (actionType: "agro" | "icms" | "popular" | "bigtech") => {
     if (actionType === "agro") {
       if (solarPoliticalCapital < 1) return;
       setSolarPoliticalCapital(prev => prev - 1);
@@ -71,6 +184,11 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       setSolarChamberSupport(prev => Math.min(prev + 10, 100));
       setSolarSenateSupport(prev => Math.min(prev + 10, 100));
       setSolarLog("Disparou uma campanha digital em defesa do consumidor/prossumidor solar. Mobilização popular gerou forte pressão orgânica nos parlamentares (+10% suporte em ambas as casas, +1 Token de Capital Político).");
+    } else if (actionType === "bigtech") {
+      setBigTechLobbyActive(true);
+      setSolarChamberSupport(prev => Math.min(prev + 25, 100));
+      setSolarSenateSupport(prev => Math.min(prev + 20, 100));
+      setSolarLog("Lobby das Big Techs ATIVADO! As gigantes da tecnologia (Google, Meta, AWS) injetaram apoio financeiro e promessas de novos Data Centers para reverter votos. Elas querem incentivar a venda livre do excedente solar dos pequenos prossumidores para canalizar energia limpa barata ao grid nacional que alimenta suas infraestruturas sedentas por IA (+25% na Câmara, +20% no Senado)!");
     }
   };
 
@@ -78,41 +196,103 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
     if (solarIsVoting) return;
     setSolarIsVoting(true);
     setSolarVoteProgressStep(1);
-    setSolarLog("Votação iniciada! Os 513 deputados federais estão registrando seus votos na Câmara...");
+    setSolarLog("Votação nominal iniciada na Câmara dos Deputados! Cada um dos 513 deputados federais está registrando seu voto em tempo real...");
 
+    // Update individual deputy votes
     setTimeout(() => {
-      const variance = Math.floor(Math.random() * 17) - 8; // -8% to +8%
-      const finalChamberSupport = Math.max(10, Math.min(98, solarChamberSupport + variance));
-      const votes = Math.round(5.13 * finalChamberSupport);
-      setSolarChamberVotes(votes);
+      let simVotesChamber = 0;
+      
+      const updatedLegislators = legislators.map(leg => {
+        if (leg.type === "deputy") {
+          // Calculate probability based on lobby and actions
+          let prob = 30; // Base default probability
+          
+          if (leg.baseLobby === "Social/Clima") {
+            prob = 94; // Almost always votes yes
+          } else if (leg.baseLobby === "Distribuidoras") {
+            prob = bigTechLobbyActive ? 35 : 4; // Bribed by distributors, hard to convince unless outbid
+          } else if (leg.baseLobby === "Agronegócio") {
+            const hasAgroBonus = solarChamberSupport > 55;
+            prob = hasAgroBonus ? 85 : 25;
+            if (bigTechLobbyActive) prob += 15;
+          } else if (leg.baseLobby === "Big Techs") {
+            prob = bigTechLobbyActive ? 98 : 65; // High tech lobby support
+          } else if (leg.baseLobby === "Fisiológico") {
+            prob = 35;
+            if (solarChamberSupport > 62) prob += 20; // Government influence
+            if (bigTechLobbyActive) prob += 40; // Heavy industry campaign stimulus
+          }
+          
+          prob = Math.max(5, Math.min(98, prob));
+          const roll = Math.random() * 100;
+          const vote: "SIM" | "NÃO" | "ABSTENÇÃO" = roll < prob ? "SIM" : (roll > prob + 12 ? "NÃO" : "ABSTENÇÃO");
+          if (vote === "SIM") simVotesChamber++;
+          
+          return { ...leg, vote };
+        }
+        return leg;
+      });
 
-      if (votes >= 257) {
+      setSolarChamberVotes(simVotesChamber);
+      setLegislators(updatedLegislators);
+
+      if (simVotesChamber >= 257) {
         setSolarVoteProgressStep(2);
-        setSolarLog(`Aprovado na Câmara! Recebeu ${votes} votos favoráveis (necessário 257). Enviando imediatamente à comissão de infraestrutura do Senado Federal...`);
+        setSolarLog(`APROVADO NA CÂMARA! O PL de Descentralização Solar recebeu ${simVotesChamber} votos favoráveis (mínimo 257). Enviando imediatamente ao Plenário do Senado Federal (81 senadores) para votação nominal final...`);
         
         setTimeout(() => {
-          const sVariance = Math.floor(Math.random() * 13) - 6;
-          const finalSenateSupport = Math.max(10, Math.min(98, solarSenateSupport + sVariance));
-          const sVotes = Math.round(0.81 * finalSenateSupport);
-          setSolarSenateVotes(sVotes);
+          let simVotesSenate = 0;
+          
+          const finalLegislators = updatedLegislators.map(leg => {
+            if (leg.type === "senator") {
+              let prob = 25; // Base probability for conservative Senate
+              
+              if (leg.baseLobby === "Social/Clima") {
+                prob = 90;
+              } else if (leg.baseLobby === "Distribuidoras") {
+                prob = bigTechLobbyActive ? 30 : 5;
+              } else if (leg.baseLobby === "Agronegócio") {
+                const hasAgroBonus = solarSenateSupport > 50;
+                prob = hasAgroBonus ? 80 : 20;
+                if (bigTechLobbyActive) prob += 15;
+              } else if (leg.baseLobby === "Big Techs") {
+                prob = bigTechLobbyActive ? 96 : 55;
+              } else if (leg.baseLobby === "Fisiológico") {
+                prob = 30;
+                if (solarSenateSupport > 60) prob += 20;
+                if (bigTechLobbyActive) prob += 45; // Strategic target for campaign funds
+              }
+              
+              prob = Math.max(5, Math.min(98, prob));
+              const roll = Math.random() * 100;
+              const vote: "SIM" | "NÃO" | "ABSTENÇÃO" = roll < prob ? "SIM" : (roll > prob + 10 ? "NÃO" : "ABSTENÇÃO");
+              if (vote === "SIM") simVotesSenate++;
+              
+              return { ...leg, vote };
+            }
+            return leg;
+          });
+          
+          setSolarSenateVotes(simVotesSenate);
+          setLegislators(finalLegislators);
 
-          if (sVotes >= 41) {
+          if (simVotesSenate >= 41) {
             setSolarVoteProgressStep(3);
             setSolarPLApproved(true);
-            setSolarLog(`Histórico! O PL de Descentralização Energética foi aprovado no Senado com ${sVotes} votos favoráveis (necessário 41). O arco-íris tarifário da ANEEL foi quebrado, garantindo o direito de venda livre do excedente solar!`);
+            setSolarLog(`HISTÓRICO! O PL de Descentralização Energética foi APROVADO NO SENADO com ${simVotesSenate} votos favoráveis (mínimo 41)! O oligopólio e as distribuidoras foram derrotados pela aliança entre prossumidores e o Lobby das Big Techs. Pequenos consumidores agora monetizam seu excedente solar diretamente na rede para abastecer os Data Centers famintos de IA.`);
           } else {
             setSolarVoteProgressStep(4);
-            setSolarLog(`Rejeitado no Senado Federal! Obteve apenas ${sVotes} votos favoráveis dos 41 necessários. O PL de venda do excedente solar foi arquivado.`);
+            setSolarLog(`REJEITADO NO SENADO! Obteve apenas ${simVotesSenate} votos favoráveis dos 41 necessários. O lobby financeiro pesado das concessionárias e distribuidoras de energia tradicionais barrou o projeto na casa federativa.`);
           }
           setSolarIsVoting(false);
-        }, 1500);
+        }, 1800);
 
       } else {
         setSolarVoteProgressStep(4);
-        setSolarLog(`Rejeitado na Câmara dos Deputados! Obteve apenas ${votes} votos favoráveis dos 257 necessários. O projeto foi arquivado.`);
+        setSolarLog(`REJEITADO NA CÂMARA DOS DEPUTADOS! Obteve apenas ${simVotesChamber} votos favoráveis dos 257 necessários. O oligopólio tradicional das distribuidoras prevaleceu na ausência de articulação financeira e política suficiente.`);
         setSolarIsVoting(false);
       }
-    }, 1500);
+    }, 1800);
   };
 
   const handleResetSolarVote = () => {
@@ -124,6 +304,9 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
     setSolarVoteProgressStep(0);
     setSolarChamberVotes(0);
     setSolarSenateVotes(0);
+    setBigTechLobbyActive(false);
+    setSelectedLegislator(null);
+    setLegislators(prev => prev.map(l => ({ ...l, vote: "ABSTENÇÃO" })));
     setSolarLog("Votação e coalizão legislativa resetadas. Pronto para nova articulação.");
   };
 
@@ -600,6 +783,28 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
                   <span className="text-[10px] text-amber-100/60 leading-normal block mt-0.5">Ativa pressão cívica digital contra as grandes distribuidoras (+10% em ambas as casas, recupera 1 Token)</span>
                 </div>
               </button>
+
+              {/* Big Tech Lobby */}
+              <button
+                disabled={solarPLApproved || solarIsVoting || bigTechLobbyActive}
+                onClick={() => handleSolarNegotiate("bigtech")}
+                className={`w-full text-left p-3 rounded-xl border transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-start gap-2.5 ${
+                  bigTechLobbyActive 
+                    ? "border-cyan-500/50 bg-cyan-950/40" 
+                    : "border-cyan-900/40 hover:border-cyan-850 bg-cyan-950/20 hover:bg-cyan-950/40"
+                }`}
+              >
+                <span className="p-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg mt-0.5 font-mono text-xs font-bold">LOBBY</span>
+                <div>
+                  <span className="text-xs font-bold text-cyan-300 block flex items-center gap-1.5">
+                    Acionar Lobby das Big Techs & AI
+                    {bigTechLobbyActive && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-mono uppercase font-bold animate-pulse">Ativo</span>}
+                  </span>
+                  <span className="text-[10px] text-cyan-100/60 leading-normal block mt-0.5">
+                    As gigantes de IA financiam campanhas para que cidadãos vendam seu excedente solar de baixo custo diretamente no grid nacional, suprindo seus Data Centers sedentos por energia (+25% Câmara, +20% Senado).
+                  </span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -715,6 +920,311 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Dynamic Seating Grid of All 513 Deputies and 81 Senators */}
+        <div className="mt-8 border border-slate-800 bg-slate-950 rounded-3xl p-6 text-slate-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-850">
+            <div>
+              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono block mb-1">
+                Auditoria de Corporativismo & Pecúnia Legislativa
+              </span>
+              <h4 className="text-base font-black text-white flex items-center gap-2">
+                <Users className="h-5 w-5 text-indigo-400" />
+                Painel do Plenário: 513 Deputados e 81 Senadores
+              </h4>
+              <p className="text-xs text-slate-400 mt-1">
+                O voto nominal revela o incentivo financeiro de cada parlamentar. O lobby das Distribuidoras quer abstenção ou voto NÃO para proteger tarifas, enquanto as Big Techs compram votos SIM para alimentar novos Data Centers de Inteligência Artificial.
+              </p>
+            </div>
+            
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 bg-slate-900/60 p-3 rounded-xl border border-slate-850 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded bg-emerald-500 block"></span>
+                <span>SIM ({legislators.filter(l => l.vote === "SIM").length})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded bg-rose-500 block"></span>
+                <span>NÃO ({legislators.filter(l => l.vote === "NÃO").length})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded bg-slate-600 block"></span>
+                <span>ABSTENÇÃO/NEUTRO ({legislators.filter(l => l.vote === "ABSTENÇÃO").length})</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Seating Charts (Col 8) */}
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* Chamber (513 Seats) */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-indigo-300 font-mono uppercase">Câmara dos Deputados (513 Cadeiras)</span>
+                  <span className="text-[10px] text-slate-500">Mínimo para aprovação: 257 SIM</span>
+                </div>
+                
+                {/* Responsive grid of tiny seats */}
+                <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-850/80">
+                  <div className="flex flex-wrap gap-1 sm:gap-1.5 justify-center max-w-full">
+                    {legislators.filter(l => l.type === "deputy").map((dep, index) => (
+                      <button
+                        key={dep.id}
+                        title={`${dep.name} (${dep.party}-${dep.state}) - Lobby: ${dep.baseLobby} - Voto: ${dep.vote}`}
+                        onClick={() => setSelectedLegislator(dep)}
+                        className={`h-3 w-3 sm:h-3.5 sm:w-3.5 rounded transition-all cursor-pointer hover:ring-2 hover:ring-white/80 ${
+                          dep.vote === "SIM" ? "bg-emerald-500 shadow-sm shadow-emerald-500/25" :
+                          dep.vote === "NÃO" ? "bg-rose-500 shadow-sm shadow-rose-500/25" :
+                          "bg-slate-700 hover:bg-slate-600"
+                        } ${selectedLegislator?.id === dep.id ? "ring-2 ring-indigo-400 scale-125 z-10" : ""}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Senate (81 Seats) */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-purple-300 font-mono uppercase">Senado Federal (81 Cadeiras)</span>
+                  <span className="text-[10px] text-slate-500">Mínimo para aprovação: 41 SIM</span>
+                </div>
+                
+                {/* Larger dots for senate */}
+                <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-850/80">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
+                    {legislators.filter(l => l.type === "senator").map((sen) => (
+                      <button
+                        key={sen.id}
+                        title={`${sen.name} (${sen.party}-${sen.state}) - Lobby: ${sen.baseLobby} - Voto: ${sen.vote}`}
+                        onClick={() => setSelectedLegislator(sen)}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 rounded-full transition-all cursor-pointer hover:ring-2 hover:ring-white/80 ${
+                          sen.vote === "SIM" ? "bg-emerald-500 shadow-sm shadow-emerald-500/25" :
+                          sen.vote === "NÃO" ? "bg-rose-500 shadow-sm shadow-rose-500/25" :
+                          "bg-slate-700 hover:bg-slate-600"
+                        } ${selectedLegislator?.id === sen.id ? "ring-2 ring-indigo-400 scale-125 z-10" : ""}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Search and List Table */}
+              <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-850/80">
+                <div className="flex flex-col md:flex-row gap-3 mb-4">
+                  {/* Search input */}
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Pesquisar por nome, partido ou UF (ex: Arthur, PT, SP)..."
+                      value={legislatorSearch}
+                      onChange={(e) => setLegislatorSearch(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-indigo-500 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Dropdown Filters */}
+                  <div className="flex flex-wrap gap-2">
+                    {/* Casa filter */}
+                    <select
+                      value={legislatorFilterType}
+                      onChange={(e) => setLegislatorFilterType(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 text-xs rounded-xl py-2 px-3 text-slate-300 focus:border-indigo-500 outline-none cursor-pointer"
+                    >
+                      <option value="ALL">Todas as Casas</option>
+                      <option value="deputy">Câmara (Deputados)</option>
+                      <option value="senator">Senado (Senadores)</option>
+                    </select>
+
+                    {/* Voto filter */}
+                    <select
+                      value={legislatorFilterVote}
+                      onChange={(e) => setLegislatorFilterVote(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 text-xs rounded-xl py-2 px-3 text-slate-300 focus:border-indigo-500 outline-none cursor-pointer"
+                    >
+                      <option value="ALL">Todos os Votos</option>
+                      <option value="SIM">Votou SIM</option>
+                      <option value="NÃO">Votou NÃO</option>
+                      <option value="ABSTENÇÃO">Abstenção / Neutro</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Scrollable table of legislators */}
+                <div className="max-h-64 overflow-y-auto border border-slate-850 rounded-xl bg-slate-950">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-slate-900 sticky top-0 text-slate-400 font-mono text-[10px] uppercase tracking-wider">
+                      <tr>
+                        <th className="p-3 border-b border-slate-850">Parlamentar</th>
+                        <th className="p-3 border-b border-slate-850">UF</th>
+                        <th className="p-3 border-b border-slate-850">Lobby Principal</th>
+                        <th className="p-3 border-b border-slate-850 text-right">Voto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850">
+                      {legislators
+                        .filter(leg => {
+                          const matchesSearch = leg.name.toLowerCase().includes(legislatorSearch.toLowerCase()) || 
+                                                leg.party.toLowerCase().includes(legislatorSearch.toLowerCase()) ||
+                                                leg.state.toLowerCase().includes(legislatorSearch.toLowerCase());
+                          const matchesType = legislatorFilterType === "ALL" || leg.type === legislatorFilterType;
+                          const matchesVote = legislatorFilterVote === "ALL" || leg.vote === legislatorFilterVote;
+                          return matchesSearch && matchesType && matchesVote;
+                        })
+                        .slice(0, 100) // Render top 100 for great performance
+                        .map((leg) => (
+                          <tr 
+                            key={leg.id}
+                            onClick={() => setSelectedLegislator(leg)}
+                            className={`hover:bg-slate-900/60 transition-all cursor-pointer ${
+                              selectedLegislator?.id === leg.id ? "bg-indigo-950/20" : ""
+                            }`}
+                          >
+                            <td className="p-3">
+                              <div className="font-bold text-slate-200">{leg.name}</div>
+                              <div className="text-[10px] text-slate-500 font-mono">{leg.party} • {leg.type === "deputy" ? "Câmara" : "Senado"}</div>
+                            </td>
+                            <td className="p-3 font-mono text-slate-400">{leg.state}</td>
+                            <td className="p-3">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                leg.baseLobby === "Distribuidoras" ? "bg-rose-950/40 text-rose-300" :
+                                leg.baseLobby === "Big Techs" ? "bg-cyan-950/40 text-cyan-300" :
+                                leg.baseLobby === "Agronegócio" ? "bg-amber-950/40 text-amber-300" :
+                                leg.baseLobby === "Social/Clima" ? "bg-emerald-950/40 text-emerald-300" :
+                                "bg-slate-900 text-slate-400"
+                              }`}>
+                                {leg.baseLobby}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={`font-mono font-bold px-2 py-0.5 rounded text-[10px] ${
+                                leg.vote === "SIM" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                leg.vote === "NÃO" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                                "bg-slate-850 text-slate-400 border border-slate-800"
+                              }`}>
+                                {leg.vote}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  {legislators.filter(leg => {
+                    const matchesSearch = leg.name.toLowerCase().includes(legislatorSearch.toLowerCase()) || 
+                                          leg.party.toLowerCase().includes(legislatorSearch.toLowerCase()) ||
+                                          leg.state.toLowerCase().includes(legislatorSearch.toLowerCase());
+                    const matchesType = legislatorFilterType === "ALL" || leg.type === legislatorFilterType;
+                    const matchesVote = legislatorFilterVote === "ALL" || leg.vote === legislatorFilterVote;
+                    return matchesSearch && matchesType && matchesVote;
+                  }).length > 100 && (
+                    <div className="p-3 text-center text-[10px] text-slate-500 bg-slate-900 font-mono">
+                      Exibindo os primeiros 100 parlamentares correspondentes de {legislators.filter(leg => {
+                        const matchesSearch = leg.name.toLowerCase().includes(legislatorSearch.toLowerCase()) || 
+                                              leg.party.toLowerCase().includes(legislatorSearch.toLowerCase()) ||
+                                              leg.state.toLowerCase().includes(legislatorSearch.toLowerCase());
+                        const matchesType = legislatorFilterType === "ALL" || leg.type === legislatorFilterType;
+                        const matchesVote = legislatorFilterVote === "ALL" || leg.vote === legislatorFilterVote;
+                        return matchesSearch && matchesType && matchesVote;
+                      }).length}. Use os filtros acima para refinar.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Legislator Transparency Card (Col 4) */}
+            <div className="lg:col-span-4 h-full">
+              {selectedLegislator ? (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white flex flex-col justify-between h-full min-h-[350px]">
+                  <div>
+                    <span className="text-[9px] font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-1">
+                      Ficha de Transparência do Parlamentar
+                    </span>
+                    <h5 className="font-bold text-base text-white">{selectedLegislator.name}</h5>
+                    
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      <span className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-bold font-mono text-slate-300">
+                        {selectedLegislator.party}
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-bold font-mono text-slate-300">
+                        UF: {selectedLegislator.state}
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-bold font-mono text-slate-300">
+                        {selectedLegislator.type === "deputy" ? "Câmara dos Deputados" : "Senado Federal"}
+                      </span>
+                    </div>
+                    
+                    <div className="mt-5 pt-4 border-t border-slate-800 space-y-3.5">
+                      <div>
+                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Lobby Corporativo Dominante</span>
+                        <span className={`text-xs font-bold block ${
+                          selectedLegislator.baseLobby === "Distribuidoras" ? "text-rose-400" :
+                          selectedLegislator.baseLobby === "Big Techs" ? "text-cyan-400" :
+                          selectedLegislator.baseLobby === "Agronegócio" ? "text-amber-400" :
+                          selectedLegislator.baseLobby === "Social/Clima" ? "text-emerald-400" : "text-slate-300"
+                        }`}>
+                          {selectedLegislator.baseLobby === "Distribuidoras" && "🔌 Concessionárias de Energia (Oligopólio)"}
+                          {selectedLegislator.baseLobby === "Big Techs" && "🤖 Lobby das Big Techs & AI Data Centers"}
+                          {selectedLegislator.baseLobby === "Agronegócio" && "🌾 Bancada do Agronegócio (FPA)"}
+                          {selectedLegislator.baseLobby === "Social/Clima" && "🌱 Clima / Defesa do Consumidor Solar"}
+                          {selectedLegislator.baseLobby === "Fisiológico" && "🏛️ Bancada Centrista / Fisiológica"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Estímulo Financeiro Estimado</span>
+                        <span className="text-xs font-mono font-bold text-slate-200">
+                          {selectedLegislator.financialSupport}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Motivação Real do Voto</span>
+                        <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                          {selectedLegislator.vote === "ABSTENÇÃO" && "Aguardando o início da sessão nominal no plenário do Congresso."}
+                          {selectedLegislator.vote === "SIM" && (
+                            selectedLegislator.baseLobby === "Big Techs" ? "Votou favoravelmente com apoio do Consórcio de IA, que deseja sugar o excedente solar para Data Centers locais de alta demanda." :
+                            selectedLegislator.baseLobby === "Social/Clima" ? "Apoiou a causa cívica da microgeração para baratear a conta de luz dos eleitores de baixa renda." :
+                            selectedLegislator.baseLobby === "Agronegócio" ? "Votou sim após a bancada rústica fechar acordo de isenção tributária para geração em fazendas." :
+                            selectedLegislator.baseLobby === "Fisiológico" ? "Seguiu o incentivo financeiro das Big Techs que prometeram investimentos massivos de IA em seu reduto eleitoral." :
+                            "Cedeu à pressão popular orgânica nas redes sociais contra o 'arco-íris tarifário' da ANEEL."
+                          )}
+                          {selectedLegislator.vote === "NÃO" && (
+                            selectedLegislator.baseLobby === "Distribuidoras" ? "Defendeu o faturamento do oligopólio tradicional das distribuidoras convencionais para barrar geradores autônomos." :
+                            "Votou contra pressionado pelas distribuidoras locais, que temem perder receita com prossumidores domésticos."
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+                    <span className="text-[10px] text-slate-500 font-mono">Registro de Voto</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold ${
+                      selectedLegislator.vote === "SIM" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                      selectedLegislator.vote === "NÃO" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" :
+                      "bg-slate-800 text-slate-400 border border-slate-700/50"
+                    }`}>
+                      {selectedLegislator.vote}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 flex flex-col items-center justify-center h-full min-h-[350px]">
+                  <Users className="h-10 w-10 text-slate-600 mb-2.5" />
+                  <h5 className="text-xs font-bold text-slate-300">Auditoria Individual</h5>
+                  <p className="text-[11px] text-slate-500 max-w-xs mt-1 leading-normal">
+                    Selecione qualquer parlamentar no plenário (clique em um quadrado ou círculo colorido) ou na tabela para expor seus lobbies influenciadores, incentivos e justificativa de voto.
+                  </p>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
