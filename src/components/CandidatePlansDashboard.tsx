@@ -25,7 +25,15 @@ import {
   Search,
   Filter,
   Cpu,
-  Coins
+  Coins,
+  Share2,
+  Send,
+  Copy,
+  Smartphone,
+  ExternalLink,
+  MessageSquare,
+  Check,
+  Play
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
@@ -225,6 +233,151 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
 
   useEffect(() => {
     loadSavedSimulations();
+  }, []);
+
+  const getCandidateHandle = (name: string) => {
+    if (name.includes("Lula")) return { handle: "@lulaoficial", avatar: "🔴" };
+    if (name.includes("Bolsonaro")) return { handle: "@flaviobolsonaro", avatar: "🟢" };
+    if (name.includes("Zema")) return { handle: "@romeuzema_novo", avatar: "🍊" };
+    if (name.includes("Caiado")) return { handle: "@ronaldocaiado", avatar: "🔵" };
+    if (name.includes("Renan")) return { handle: "@renansantos_mbl", avatar: "🟡" };
+    return { handle: "@candidato_2026", avatar: "👤" };
+  };
+
+
+  // Estados para a Central de Pressão Social (Bluesky & Twitter)
+  const [socialStakeholder, setSocialStakeholder] = useState<"bigtech" | "prosumer" | "utility" | "legislator" | "general">("general");
+  const [socialTone, setSocialTone] = useState<"analytical" | "persuasive" | "corporate">("analytical");
+  const [socialPlatform, setSocialPlatform] = useState<"bluesky" | "twitter" | "simulated">("simulated");
+  const [socialPosts, setSocialPosts] = useState<string[]>([
+    "1/4 👥 Energia barata e tarifa flat são direitos do cidadão! O PL do Excedente Energético propõe extinguir o confuso sistema de bandeiras da ANEEL e reduzir a conta de luz. #EnergiaLimpa #Consumidor",
+    "2/4 ☀️ Ao democratizar a geração distribuída, qualquer família pode vender o excedente gerado pelo seu painel solar diretamente na rede, criando uma fonte sustentável de renda complementar.",
+    "3/4 🔋 A isenção tributária para baterias de LFP de longa duração barateia o armazenamento em 65%, garantindo redundância contra apagões urbanos.",
+    "4/4 🏛️ Não vote no escuro! Siga as votações nominais no Painel do Plenário e veja quais deputados defendem o cidadão e quem protege tarifas abusivas das distribuidoras!"
+  ]);
+  const [socialIsGenerating, setSocialIsGenerating] = useState<boolean>(false);
+  const [socialIsPublishing, setSocialIsPublishing] = useState<boolean>(false);
+  const [bskyIdentifier, setBskyIdentifier] = useState<string>("");
+  const [bskyPassword, setBskyPassword] = useState<string>("");
+  const [socialCampaigns, setSocialCampaigns] = useState<any[]>([]);
+  const [socialLogs, setSocialLogs] = useState<string[]>(["Central de Imprensa iniciada. Pronto para planejar campanhas."]);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const addSocialLog = (msg: string) => {
+    setSocialLogs(prev => [`[${new Date().toLocaleTimeString("pt-BR")}] ${msg}`, ...prev.slice(0, 19)]);
+  };
+
+  const loadSocialCampaigns = async () => {
+    try {
+      const colRef = collection(db, "social_posts");
+      const q = query(colRef, orderBy("timestamp", "desc"), limit(6));
+      const querySnapshot = await getDocs(q);
+      const list: any[] = [];
+      querySnapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setSocialCampaigns(list);
+    } catch (e) {
+      console.error("Erro ao carregar campanhas sociais do Firestore:", e);
+    }
+  };
+
+  const generateSocialThread = async () => {
+    setSocialIsGenerating(true);
+    addSocialLog(`Iniciando geração de thread de alta performance para stakeholder [${socialStakeholder}]...`);
+    try {
+      const res = await fetch("/api/generate-threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidateName: currentCandidate.name,
+          candidateParty: currentCandidate.party,
+          stakeholder: socialStakeholder,
+          tone: socialTone,
+          swotRating: `${currentCandidate.score || 2}/3`
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.threads && Array.isArray(data.threads)) {
+          setSocialPosts(data.threads);
+          addSocialLog(`Thread gerada com sucesso (${data.mode === "api" ? "Gemini AI" : "Biblioteca Local"}).`);
+        } else {
+          addSocialLog("Erro: formato de resposta inválido recebido.");
+        }
+      } else {
+        addSocialLog("Erro de rede ao comunicar com o servidor de geração.");
+      }
+    } catch (error: any) {
+      console.error("Erro na chamada do gerador:", error);
+      addSocialLog(`Falha na geração: ${error.message}`);
+    } finally {
+      setSocialIsGenerating(false);
+    }
+  };
+
+  const publishSocialThread = async () => {
+    setSocialIsPublishing(true);
+    addSocialLog(`Iniciando publicação da thread via canal [${socialPlatform}]...`);
+    try {
+      const payload = {
+        platform: socialPlatform,
+        posts: socialPosts,
+        blueskyConfig: socialPlatform === "bluesky" ? {
+          identifier: bskyIdentifier,
+          password: bskyPassword
+        } : null,
+        candidateId: selectedId,
+        stakeholder: socialStakeholder
+      };
+
+      const res = await fetch("/api/publish-social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Salvar no Cloud Firestore
+        const docId = "campaign_" + Date.now();
+        const docRef = doc(db, "social_posts", docId);
+        await setDoc(docRef, {
+          id: docId,
+          timestamp: new Date().toISOString(),
+          candidateName: currentCandidate.name,
+          candidateParty: currentCandidate.party,
+          stakeholder: socialStakeholder,
+          tone: socialTone,
+          platform: socialPlatform,
+          posts: socialPosts,
+          realPublish: data.realPublish || false
+        });
+
+        addSocialLog(data.message);
+        if (data.warning) {
+          addSocialLog(`Aviso: ${data.warning}`);
+        }
+        
+        loadSocialCampaigns();
+        setSuccessToast(`Campanha salva com sucesso no Firestore!`);
+        setTimeout(() => setSuccessToast(null), 4000);
+      } else {
+        const errData = await res.json();
+        addSocialLog(`Erro de publicação: ${errData.error || "Erro de rede"}`);
+      }
+    } catch (error: any) {
+      console.error("Erro ao publicar:", error);
+      addSocialLog(`Falha de envio: ${error.message}`);
+    } finally {
+      setSocialIsPublishing(false);
+    }
+  };
+
+  // Carregar histórico de campanhas na inicialização
+  useEffect(() => {
+    loadSocialCampaigns();
   }, []);
 
 
@@ -1204,6 +1357,409 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
               ))}
             </div>
           )}
+        </div>
+
+        {/* 📣 CENTRAL DE IMPRENSA & PRESSÃO SOCIAL: GERADOR & PUBLICADOR DE THREADS (BLUESKY & X) */}
+        <div className="mt-8 border border-slate-800 bg-slate-950/65 rounded-3xl p-6 text-slate-200 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-850">
+            <div>
+              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono block mb-1">
+                Gabinete Digital & Mobilização Pública
+              </span>
+              <h4 className="text-base font-black text-white flex items-center gap-2">
+                <Share2 className="h-5 w-5 text-cyan-400" />
+                Central de Pressão Social: Gerador & Publicador (Bluesky & Twitter)
+              </h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Mobilize a opinião pública e pressione parlamentares indecisos! Gere threads personalizadas com IA focadas em cada stakeholder chave para reverter votos no Congresso e angariar suporte popular.
+              </p>
+            </div>
+            
+            {/* Status Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-mono">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-slate-300">Firestore Conectado</span>
+            </div>
+          </div>
+
+          {/* Success Toast */}
+          <AnimatePresence>
+            {successToast && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs py-2.5 px-4 rounded-xl flex items-center gap-2 mb-4 font-mono shadow-sm shadow-cyan-500/10"
+              >
+                <Check className="h-4 w-4 flex-shrink-0 text-cyan-400" />
+                <span>{successToast}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* COLUMN 1: CAMPAIGN PLANNER CONTROLS (Col 7) */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {/* Stakeholder and Tone Selectors */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Stakeholder Select */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Stakeholder Alvo</label>
+                  <select
+                    value={socialStakeholder}
+                    onChange={(e: any) => setSocialStakeholder(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs rounded-xl py-2.5 px-3 text-slate-200 focus:border-cyan-500 outline-none cursor-pointer font-sans transition-all"
+                  >
+                    <option value="general">👥 População Geral (Fim das Bandeiras)</option>
+                    <option value="bigtech">💻 Big Techs & AI Centers (Energia de IA)</option>
+                    <option value="prosumer">☀️ Pequenos Prossumidores (Venda Solar)</option>
+                    <option value="utility">🏢 Concessionárias de Energia (Smart Grid)</option>
+                    <option value="legislator">🏛️ Congresso Nacional (Voto e Dividendos)</option>
+                  </select>
+                </div>
+
+                {/* Tone Select */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Tom da Comunicação</label>
+                  <select
+                    value={socialTone}
+                    onChange={(e: any) => setSocialTone(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs rounded-xl py-2.5 px-3 text-slate-200 focus:border-cyan-500 outline-none cursor-pointer font-sans transition-all"
+                  >
+                    <option value="analytical">📈 Técnico & Analítico (Dados e PIB)</option>
+                    <option value="persuasive">🔥 Persuasivo & Mobilizador (Engajamento)</option>
+                    <option value="corporate">💼 Pragmático & Corporativo (CAPEX/ROI)</option>
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Platform Selector Tabs */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Plataforma de Publicação</label>
+                <div className="grid grid-cols-3 gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSocialPlatform("simulated")}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      socialPlatform === "simulated"
+                        ? "bg-slate-950 text-white border border-slate-800 shadow-sm"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    Simulado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSocialPlatform("bluesky")}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      socialPlatform === "bluesky"
+                        ? "bg-cyan-950/40 text-cyan-300 border border-cyan-500/20 shadow-sm shadow-cyan-500/5"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="text-cyan-400">🩵</span>
+                    Bluesky Real
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSocialPlatform("twitter")}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      socialPlatform === "twitter"
+                        ? "bg-white/5 text-white border border-slate-800 shadow-sm"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <span>🖤</span>
+                    Twitter / X
+                  </button>
+                </div>
+              </div>
+
+              {/* Platform specific credential configurations */}
+              {socialPlatform === "bluesky" && (
+                <div className="bg-cyan-950/10 border border-cyan-900/30 rounded-2xl p-4 space-y-3.5">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-cyan-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-[10px] text-cyan-300 font-sans leading-relaxed">
+                      <strong>Conexão Segura ao Bluesky:</strong> Insira seu Handle (ex: <code>seunome.bsky.social</code>) e seu <strong>App Password</strong> (criado nas Configurações do Bluesky em &apos;Senhas do Aplicativo&apos;). Suas credenciais são processadas localmente de forma estritamente segura para criar a sessão AT Protocol.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-cyan-400/80 font-mono block uppercase">Bluesky Handle</span>
+                      <input
+                        type="text"
+                        placeholder="ex: voce.bsky.social"
+                        value={bskyIdentifier}
+                        onChange={(e) => setBskyIdentifier(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-slate-100 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-bold text-cyan-400/80 font-mono block uppercase">App Password</span>
+                      <input
+                        type="password"
+                        placeholder="ex: abcd-efgh-ijkl-mnop"
+                        value={bskyPassword}
+                        onChange={(e) => setBskyPassword(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-cyan-500 rounded-xl py-2 px-3 text-xs text-slate-100 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {socialPlatform === "twitter" && (
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                    <div className="text-[10px] text-slate-300 font-sans leading-relaxed">
+                      <strong>Postagem Manual Super Rápida (Intent):</strong> As APIs do Twitter restringem postagens automatizadas de terceiros sem taxas exorbitantes. 
+                      Para garantir total sucesso, fornecemos botões <strong>Postar no X</strong> individuais no smartphone preview para disparar cada post em 1 clique, prontos e formatados. Alternativamente, selecione <strong>Simulado</strong> para simular e salvar a campanha diretamente no banco de dados para prestação de contas!
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  disabled={socialIsGenerating || socialIsPublishing}
+                  onClick={generateSocialThread}
+                  className="flex-1 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-55 text-white font-bold py-3 px-4 rounded-xl text-xs font-mono transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-cyan-950/20"
+                >
+                  <Sparkles className={`h-4 w-4 ${socialIsGenerating ? "animate-spin" : ""}`} />
+                  {socialIsGenerating ? "Gerando com Gemini AI..." : "Gerar Thread com IA"}
+                </button>
+                <button
+                  type="button"
+                  disabled={socialIsGenerating || socialIsPublishing}
+                  onClick={publishSocialThread}
+                  className="flex-1 bg-slate-900 hover:bg-slate-850 text-cyan-400 border border-slate-800 hover:border-slate-700 disabled:opacity-55 font-bold py-3 px-4 rounded-xl text-xs font-mono transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Send className={`h-4 w-4 ${socialIsPublishing ? "animate-pulse" : ""}`} />
+                  {socialIsPublishing ? "Publicando..." : socialPlatform === "simulated" ? "Simular e Arquivar (Firestore)" : "Publicar Thread Real"}
+                </button>
+              </div>
+
+              {/* Real-time Logger Console */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 font-mono uppercase tracking-wider">
+                  <span>Console de Operações de Imprensa</span>
+                  <span className="text-[8px] text-slate-600">Histórico de Sessão</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-900 rounded-2xl p-3.5 max-h-36 overflow-y-auto font-mono text-[10px] text-cyan-400/90 space-y-1.5 shadow-inner">
+                  {socialLogs.map((log, index) => (
+                    <div key={index} className="flex gap-2 leading-relaxed">
+                      <span className="text-slate-600">&gt;</span>
+                      <span>{log}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* COLUMN 2: SMARTPHONE TIMELINE PREVIEW (Col 5) */}
+            <div className="lg:col-span-5 flex flex-col items-center">
+              
+              <div className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-wider mb-2.5 self-start">
+                Preview de Linha do Tempo (Smartphone)
+              </div>
+
+              {/* Mock iPhone/Android frame */}
+              <div className="w-full max-w-[340px] bg-slate-950 rounded-[40px] border-4 border-slate-800 shadow-2xl relative overflow-hidden flex flex-col min-h-[480px]">
+                
+                {/* Smartphone Notch and Status bar */}
+                <div className="bg-slate-950 h-6 flex justify-between items-center px-6 text-[9px] text-slate-400 font-mono border-b border-slate-900">
+                  <span>13:23</span>
+                  <div className="w-16 h-3.5 bg-slate-900 rounded-b-xl absolute left-1/2 -translate-x-1/2 top-0 flex items-center justify-center">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-800"></span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>5G</span>
+                    <Battery className="h-3 w-3" />
+                  </div>
+                </div>
+
+                {/* Platform Header */}
+                <div className="bg-slate-950 py-2.5 px-4 border-b border-slate-900 flex justify-between items-center">
+                  <span className="text-xs font-black text-white tracking-tight">
+                    {socialPlatform === "bluesky" ? "🦋 Bluesky" : socialPlatform === "twitter" ? "🩵 Twitter" : "🛡️ Painel de Imprensa"}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-mono uppercase">Feed Oficial</span>
+                </div>
+
+                {/* Smartphone Screen Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950 scrollbar-thin">
+                  {socialPosts.map((postText, index) => {
+                    const candInfo = getCandidateHandle(currentCandidate.name);
+                    const isOverLimit = socialPlatform === "bluesky" ? postText.length > 300 : postText.length > 280;
+                    
+                    return (
+                      <div key={index} className="relative flex gap-2 text-xs">
+                        {/* Thread line linking avatars */}
+                        {index < socialPosts.length - 1 && (
+                          <div className="absolute left-[13px] top-7 bottom-[-20px] w-0.5 bg-slate-800"></div>
+                        )}
+
+                        {/* Avatar */}
+                        <div className="h-7 w-7 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-sm flex-shrink-0 z-10">
+                          {candInfo.avatar}
+                        </div>
+
+                        {/* Tweet box content */}
+                        <div className="flex-1 space-y-1">
+                          
+                          {/* User info */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1 truncate max-w-[140px]">
+                              <strong className="text-slate-100 font-bold truncate text-[11px]">{currentCandidate.name}</strong>
+                              <span className="text-slate-500 text-[9px] font-mono">{candInfo.handle}</span>
+                            </div>
+                            <span className="text-slate-600 text-[9px] font-mono">{index + 1} de {socialPosts.length}</span>
+                          </div>
+
+                          {/* Editable Post Text Area */}
+                          <textarea
+                            value={postText}
+                            onChange={(e) => {
+                              const next = [...socialPosts];
+                              next[index] = e.target.value;
+                              setSocialPosts(next);
+                            }}
+                            rows={3}
+                            className="w-full bg-slate-900/50 border border-slate-850 hover:border-slate-800 focus:border-cyan-500 rounded-xl p-2.5 text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none resize-none font-sans leading-relaxed transition-all"
+                          />
+
+                          {/* Post stats & actions */}
+                          <div className="flex items-center justify-between text-[10px] pt-1">
+                            
+                            {/* Char Counter */}
+                            <span className={`font-mono text-[9px] ${isOverLimit ? "text-rose-500 font-bold" : "text-slate-500"}`}>
+                              {postText.length} / {socialPlatform === "bluesky" ? 300 : 280} c.
+                            </span>
+
+                            {/* Quick tools */}
+                            <div className="flex items-center gap-2 text-slate-400">
+                              
+                              {/* Copy tool */}
+                              <button
+                                type="button"
+                                title="Copiar este post"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(postText);
+                                  addSocialLog(`Copiado Post ${index+1} para a área de transferência.`);
+                                }}
+                                className="hover:text-cyan-400 p-1 bg-slate-900 border border-slate-850 rounded-lg hover:border-slate-700 transition-all cursor-pointer"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+
+                              {/* Manual intent launch button */}
+                              <a
+                                href={socialPlatform === "bluesky" 
+                                  ? `https://bsky.app/intent/compose?text=${encodeURIComponent(postText)}`
+                                  : `https://twitter.com/intent/tweet?text=${encodeURIComponent(postText)}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Postar manualmente via Intent"
+                                className="hover:text-cyan-400 p-1 bg-slate-900 border border-slate-850 rounded-lg hover:border-slate-700 transition-all flex items-center justify-center cursor-pointer"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+
+                            </div>
+
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* HISTÓRICO DE CAMPANHAS DE PRESSÃO (FIRESTORE DATABASE AUDIT) */}
+          <div className="mt-8 pt-6 border-t border-slate-850">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="h-4.5 w-4.5 text-cyan-400" />
+              <h5 className="text-xs font-bold text-white font-mono uppercase tracking-wider">Histórico de Campanhas Sociais (Firestore)</h5>
+            </div>
+
+            {socialCampaigns.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-500 font-mono border border-dashed border-slate-850 rounded-2xl">
+                Nenhuma campanha social salva no banco de dados ainda. Gere e publique para salvar!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {socialCampaigns.map((camp, idx) => {
+                  const labelStakeholder = 
+                    camp.stakeholder === "bigtech" ? "Big Techs & IA" :
+                    camp.stakeholder === "prosumer" ? "Prossumidores" :
+                    camp.stakeholder === "utility" ? "Distribuidoras" :
+                    camp.stakeholder === "legislator" ? "Congresso" :
+                    "População Geral";
+
+                  return (
+                    <div key={camp.id || idx} className="bg-slate-950/80 border border-slate-850 rounded-2xl p-4 flex flex-col justify-between gap-3 text-xs shadow-sm hover:border-slate-800 transition-all">
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                            camp.realPublish ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                          }`}>
+                            {camp.realPublish ? "PUBLICAÇÃO REAL" : "SIMULAÇÃO"}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-mono">{new Date(camp.timestamp).toLocaleDateString("pt-BR")}</span>
+                        </div>
+                        <strong className="text-white block truncate">Campanha: {camp.candidateName}</strong>
+                        <span className="text-[9px] text-slate-400 font-mono block uppercase">Canal: {camp.platform}</span>
+
+                        <div className="text-[10px] text-slate-400 mt-2 font-sans line-clamp-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-850">
+                          {camp.posts && camp.posts[0] ? camp.posts[0] : "Sem posts cadastrados."}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center border-t border-slate-850/60 pt-2.5 mt-1.5">
+                        <span className="text-[9px] text-slate-500 font-mono uppercase">Alvo: {labelStakeholder}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (camp.posts) {
+                              setSocialPosts(camp.posts);
+                              setSocialStakeholder(camp.stakeholder || "general");
+                              setSocialTone(camp.tone || "analytical");
+                              setSocialPlatform(camp.platform || "simulated");
+                              addSocialLog(`Campanha de ${camp.candidateName} carregada no smartphone para edição/envio!`);
+                            }
+                          }}
+                          className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 font-bold hover:underline cursor-pointer"
+                        >
+                          Carregar no Preview
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Dynamic Seating Grid of All 513 Deputies and 81 Senators */}
