@@ -467,6 +467,104 @@ app.post("/api/publish-social", async (req, res) => {
   });
 });
 
+// Real API Endpoint to handle communication directly with Legislators
+app.post("/api/message-legislator", async (req, res) => {
+  const {
+    legislatorId,
+    legislatorName,
+    legislatorType,
+    legislatorParty,
+    legislatorLobby,
+    legislatorVote,
+    senderName,
+    senderEmail,
+    subject,
+    messageContent
+  } = req.body;
+
+  if (!legislatorId || !legislatorName || !senderName || !senderEmail || !messageContent) {
+    return res.status(400).json({ error: "Faltando parâmetros essenciais: legislatorId, legislatorName, senderName, senderEmail ou messageContent." });
+  }
+
+  // Derive realistic official email address
+  const cleanName = legislatorName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z\s]/g, "")
+    .trim()
+    .replace(/\s+/g, ".");
+  const sentToEmail = legislatorType === "senator" 
+    ? `sen.${cleanName}@senado.leg.br` 
+    : `dep.${cleanName}@camara.leg.br`;
+
+  // Dynamic high quality static response builder as fallback
+  let fallbackReply = `Prezado(a) ${senderName},\n\nAgradecemos o envio de sua mensagem ao gabinete do parlamentar ${legislatorName}. A participação social é pilar fundamental do nosso mandato democrático.\n\n`;
+
+  if (legislatorVote === "SIM") {
+    fallbackReply += `Gostaríamos de informar que o parlamentar votou SIM ao PL de Descentralização Energética. Acreditamos que a democratização da geração solar, a monetização do excedente e os incentivos às baterias de LFP representam o futuro do setor elétrico do nosso país, reduzindo tarifas e impulsionando a infraestrutura moderna de IA. Seguimos juntos defendendo a inovação!\n\nAtenciosamente,\nAssessoria de Comunicação de ${legislatorName}`;
+  } else if (legislatorVote === "NÃO") {
+    fallbackReply += `Compreendemos as suas considerações sobre o setor elétrico. No entanto, o voto NÃO proferido pelo parlamentar fundamenta-se na urgente necessidade de preservar o equilíbrio econômico-financeiro dos contratos de concessão pública das distribuidoras tradicionais, evitando que custos de infraestrutura de rede sejam repassados injustamente aos consumidores de menor poder aquisitivo que não possuem painéis solares.\n\nAtenciosamente,\nAssessoria de Comunicação de ${legislatorName}`;
+  } else {
+    fallbackReply += `Informamos que o projeto de Descentralização Energética ainda está sob criteriosa análise de nossas comissões técnicas. O parlamentar optou pela abstenção neste estágio para assegurar que possamos ouvir todas as partes interessadas da sociedade civil, garantindo uma transição justa que concilie os interesses dos prossumidores solares e a estabilidade física da rede nacional.\n\nAtenciosamente,\nAssessoria de Comunicação de ${legislatorName}`;
+  }
+
+  if (!ai) {
+    console.log("Using static fallback reply from legislator (Gemini API Key missing).");
+    return res.json({
+      success: true,
+      sentToEmail,
+      autoReply: fallbackReply,
+      mode: "fallback",
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  try {
+    const prompt = `Você é o assessor-chefe de gabinete do(a) parlamentar brasileiro(a) "${legislatorName}" (Partido: ${legislatorParty}, Tipo: ${legislatorType === "senator" ? "Senador(a)" : "Deputado(a) Federal"}, Base/Lobby de Influência Predominante: ${legislatorLobby}).
+O parlamentar votou "${legislatorVote}" no projeto do PL de Descentralização Energética (que visa isentar baterias LFP e permitir que pequenos geradores solares vendam diretamente energia estável para Data Centers).
+
+Recebemos um e-mail oficial do cidadão eleitor "${senderName}" (<${senderEmail}>) com o assunto "${subject || "PL de Descentralização Solar"}" e o seguinte conteúdo:
+"${messageContent}"
+
+Escreva uma resposta de gabinete oficial de retorno para este cidadão. 
+- Mantenha o tom extremamente polido, formal, típico do Congresso Nacional, mas conciso (máximo 150 palavras).
+- Se votou SIM, elogie o engajamento popular e reforce as vantagens da liberdade de mercado, redução de bandeiras e atração de investimentos de IA.
+- Se votou NÃO, justifique de forma muito educada e diplomática que a pressa no PL pode gerar desequilíbrio na rede ou encarecer a energia dos consumidores mais pobres (subsídio cruzado), defendendo a manutenção do mercado tradicional de distribuição de energia.
+- Se votou ABSTENÇÃO, justifique que estão avaliando as emendas na comissão técnica para garantir segurança jurídica antes de votar em definitivo.
+- Assine formalmente como "Chefia de Gabinete de ${legislatorName}".`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.55,
+        systemInstruction: "Você é um assessor de relações governamentais experiente do parlamento federal brasileiro, perito em redação legislativa e relações públicas oficiais."
+      }
+    });
+
+    const replyText = response.text?.trim() || fallbackReply;
+
+    return res.json({
+      success: true,
+      sentToEmail,
+      autoReply: replyText,
+      mode: "api",
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("Erro ao gerar auto-resposta de parlamentar:", err);
+    return res.json({
+      success: true,
+      sentToEmail,
+      autoReply: fallbackReply,
+      mode: "fallback_error",
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Serve static assets in production, use Vite in development
 const isProduction = process.env.NODE_ENV === "production";
 

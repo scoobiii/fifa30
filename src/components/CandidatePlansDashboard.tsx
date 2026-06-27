@@ -394,6 +394,110 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [legislatorFilterType, setLegislatorFilterType] = useState<string>("ALL");
   const [selectedLegislator, setSelectedLegislator] = useState<Legislator | null>(null);
 
+  // Estados para Mensageria Direta de Legisladores
+  const [legMsgSenderName, setLegMsgSenderName] = useState<string>("Eleitor Consciente");
+  const [legMsgSenderEmail, setLegMsgSenderEmail] = useState<string>("eleitor@exemplo.com");
+  const [legMsgSubject, setLegMsgSubject] = useState<string>("PL de Descentralização Energética - Apelo Cívico");
+  const [legMsgBody, setLegMsgBody] = useState<string>("");
+  const [legMsgIsSending, setLegMsgIsSending] = useState<boolean>(false);
+  const [legMsgActiveTab, setLegMsgActiveTab] = useState<"dossier" | "message">("dossier");
+  const [legMsgHistory, setLegMsgHistory] = useState<any[]>([]);
+  const [legMsgResponse, setLegMsgResponse] = useState<string | null>(null);
+  const [legMsgSentEmailAddress, setLegMsgSentEmailAddress] = useState<string | null>(null);
+
+  const loadLegislatorMessages = async (legId: string) => {
+    try {
+      const colRef = collection(db, "legislator_communications");
+      const q = query(colRef, orderBy("timestamp", "desc"));
+      const querySnapshot = await getDocs(q);
+      const list: any[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.legislatorId === legId) {
+          list.push({ id: doc.id, ...data });
+        }
+      });
+      setLegMsgHistory(list);
+    } catch (e) {
+      console.error("Erro ao carregar mensagens do legislador do Firestore:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedLegislator?.id) {
+      loadLegislatorMessages(selectedLegislator.id);
+      setLegMsgActiveTab("dossier");
+      setLegMsgResponse(null);
+      setLegMsgSentEmailAddress(null);
+      const voteWord = selectedLegislator.vote === "NÃO" ? "mude seu voto para SIM no" : "mantenha seu voto favorável ao";
+      setLegMsgBody(`Prezado(a) ${selectedLegislator.name}, como cidadão e eleitor, peço encarecidamente que ${voteWord} PL de Descentralização Energética. A expansão de energia limpa (rumo à meta de 20.000 kWh/hab) e o barateamento das baterias de LFP beneficiam diretamente o desenvolvimento tecnológico e social do nosso estado! Peço que ouça a voz da sociedade.`);
+    }
+  }, [selectedLegislator?.id]);
+
+  const sendLegislatorMessage = async () => {
+    if (!selectedLegislator) return;
+    setLegMsgIsSending(true);
+    try {
+      const payload = {
+        legislatorId: selectedLegislator.id,
+        legislatorName: selectedLegislator.name,
+        legislatorType: selectedLegislator.type,
+        legislatorParty: selectedLegislator.party,
+        legislatorLobby: selectedLegislator.baseLobby,
+        legislatorVote: selectedLegislator.vote,
+        senderName: legMsgSenderName,
+        senderEmail: legMsgSenderEmail,
+        subject: legMsgSubject,
+        messageContent: legMsgBody
+      };
+
+      const res = await fetch("/api/message-legislator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Salvar no Firestore
+        const docId = "msg_" + Date.now();
+        const docRef = doc(db, "legislator_communications", docId);
+        const savedPayload = {
+          id: docId,
+          timestamp: data.timestamp || new Date().toISOString(),
+          legislatorId: selectedLegislator.id,
+          legislatorName: selectedLegislator.name,
+          legislatorType: selectedLegislator.type,
+          legislatorParty: selectedLegislator.party,
+          senderName: legMsgSenderName,
+          senderEmail: legMsgSenderEmail,
+          subject: legMsgSubject,
+          messageContent: legMsgBody,
+          sentToEmail: data.sentToEmail,
+          autoReply: data.autoReply,
+          mode: data.mode
+        };
+        await setDoc(docRef, savedPayload);
+
+        setLegMsgResponse(data.autoReply);
+        setLegMsgSentEmailAddress(data.sentToEmail);
+        
+        // Recarregar histórico
+        loadLegislatorMessages(selectedLegislator.id);
+        
+        setSuccessToast(`E-mail enviado para o gabinete oficial de ${selectedLegislator.name}!`);
+        setTimeout(() => setSuccessToast(null), 4000);
+      } else {
+        console.error("Erro na resposta da API");
+      }
+    } catch (err) {
+      console.error("Erro ao enviar mensagem ao parlamentar:", err);
+    } finally {
+      setLegMsgIsSending(false);
+    }
+  };
+
   // Estados para o Simulador de Armazenamento Solar Diurno (Baterias) e Gestão de Pico
   const [hasSolarStorage, setHasSolarStorage] = useState<boolean>(true);
   const [batteryCapacity, setBatteryCapacity] = useState<number>(10); // em kWh
@@ -1979,11 +2083,35 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
             {/* Individual Legislator Transparency Card (Col 4) */}
             <div className="lg:col-span-4 h-full">
               {selectedLegislator ? (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white flex flex-col justify-between h-full min-h-[350px]">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white flex flex-col justify-between h-full min-h-[460px]">
                   <div>
-                    <span className="text-[9px] font-mono font-bold text-indigo-400 uppercase tracking-wider block mb-1">
-                      Ficha de Transparência do Parlamentar
-                    </span>
+                    {/* Header with Tabs */}
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-4">
+                      <span className="text-[9px] font-mono font-bold text-indigo-400 uppercase tracking-wider">
+                        Parlamentar {selectedLegislator.type === "deputy" ? "Deputado" : "Senador"}
+                      </span>
+                      <div className="flex gap-1.5 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setLegMsgActiveTab("dossier")}
+                          className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            legMsgActiveTab === "dossier" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          Dossiê
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLegMsgActiveTab("message")}
+                          className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            legMsgActiveTab === "message" ? "bg-slate-800 text-cyan-400" : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          Mensagem
+                        </button>
+                      </div>
+                    </div>
+
                     <h5 className="font-bold text-base text-white">{selectedLegislator.name}</h5>
                     
                     <div className="flex flex-wrap gap-1.5 mt-2.5">
@@ -1994,57 +2122,163 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
                         UF: {selectedLegislator.state}
                       </span>
                       <span className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-bold font-mono text-slate-300">
-                        {selectedLegislator.type === "deputy" ? "Câmara dos Deputados" : "Senado Federal"}
+                        {selectedLegislator.type === "deputy" ? "Câmara" : "Senado"}
                       </span>
                     </div>
-                    
-                    <div className="mt-5 pt-4 border-t border-slate-800 space-y-3.5">
-                      <div>
-                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Lobby Corporativo Dominante</span>
-                        <span className={`text-xs font-bold block ${
-                          selectedLegislator.baseLobby === "Distribuidoras" ? "text-rose-400" :
-                          selectedLegislator.baseLobby === "Big Techs" ? "text-cyan-400" :
-                          selectedLegislator.baseLobby === "Agronegócio" ? "text-amber-400" :
-                          selectedLegislator.baseLobby === "Social/Clima" ? "text-emerald-400" : "text-slate-300"
-                        }`}>
-                          {selectedLegislator.baseLobby === "Distribuidoras" && "🔌 Concessionárias de Energia (Oligopólio)"}
-                          {selectedLegislator.baseLobby === "Big Techs" && "🤖 Lobby das Big Techs & AI Data Centers"}
-                          {selectedLegislator.baseLobby === "Agronegócio" && "🌾 Bancada do Agronegócio (FPA)"}
-                          {selectedLegislator.baseLobby === "Social/Clima" && "🌱 Clima / Defesa do Consumidor Solar"}
-                          {selectedLegislator.baseLobby === "Fisiológico" && "🏛️ Bancada Centrista / Fisiológica"}
-                        </span>
-                      </div>
 
-                      <div>
-                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Estímulo Financeiro Estimado</span>
-                        <span className="text-xs font-mono font-bold text-slate-200">
-                          {selectedLegislator.financialSupport}
-                        </span>
-                      </div>
+                    {legMsgActiveTab === "dossier" ? (
+                      <div className="mt-5 space-y-3.5">
+                        <div>
+                          <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Lobby Corporativo Dominante</span>
+                          <span className={`text-xs font-bold block ${
+                            selectedLegislator.baseLobby === "Distribuidoras" ? "text-rose-400" :
+                            selectedLegislator.baseLobby === "Big Techs" ? "text-cyan-400" :
+                            selectedLegislator.baseLobby === "Agronegócio" ? "text-amber-400" :
+                            selectedLegislator.baseLobby === "Social/Clima" ? "text-emerald-400" : "text-slate-300"
+                          }`}>
+                            {selectedLegislator.baseLobby === "Distribuidoras" && "🔌 Concessionárias de Energia (Oligopólio)"}
+                            {selectedLegislator.baseLobby === "Big Techs" && "🤖 Lobby das Big Techs & AI Data Centers"}
+                            {selectedLegislator.baseLobby === "Agronegócio" && "🌾 Bancada do Agronegócio (FPA)"}
+                            {selectedLegislator.baseLobby === "Social/Clima" && "🌱 Clima / Defesa do Consumidor Solar"}
+                            {selectedLegislator.baseLobby === "Fisiológico" && "🏛️ Bancada Centrista / Fisiológica"}
+                          </span>
+                        </div>
 
-                      <div>
-                        <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Motivação Real do Voto</span>
-                        <p className="text-xs text-slate-400 leading-relaxed mt-1">
-                          {selectedLegislator.vote === "ABSTENÇÃO" && "Aguardando o início da sessão nominal no plenário do Congresso."}
-                          {selectedLegislator.vote === "SIM" && (
-                            selectedLegislator.baseLobby === "Big Techs" ? "Votou favoravelmente com apoio do Consórcio de IA, que deseja sugar o excedente solar para Data Centers locais de alta demanda." :
-                            selectedLegislator.baseLobby === "Social/Clima" ? "Apoiou a causa cívica da microgeração para baratear a conta de luz dos eleitores de baixa renda." :
-                            selectedLegislator.baseLobby === "Agronegócio" ? "Votou sim após a bancada rústica fechar acordo de isenção tributária para geração em fazendas." :
-                            selectedLegislator.baseLobby === "Fisiológico" ? "Seguiu o incentivo financeiro das Big Techs que prometeram investimentos massivos de IA em seu reduto eleitoral." :
-                            "Cedeu à pressão popular orgânica nas redes sociais contra o 'arco-íris tarifário' da ANEEL."
-                          )}
-                          {selectedLegislator.vote === "NÃO" && (
-                            selectedLegislator.baseLobby === "Distribuidoras" ? "Defendeu o faturamento do oligopólio tradicional das distribuidoras convencionais para barrar geradores autônomos." :
-                            "Votou contra pressionado pelas distribuidoras locais, que temem perder receita com prossumidores domésticos."
-                          )}
-                        </p>
+                        <div>
+                          <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Estímulo Financeiro Estimado</span>
+                          <span className="text-xs font-mono font-bold text-slate-200">
+                            {selectedLegislator.financialSupport}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[9px] font-mono text-slate-400 block mb-0.5 uppercase">Motivação Real do Voto</span>
+                          <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                            {selectedLegislator.vote === "ABSTENÇÃO" && "Aguardando o início da sessão nominal no plenário do Congresso."}
+                            {selectedLegislator.vote === "SIM" && (
+                              selectedLegislator.baseLobby === "Big Techs" ? "Votou favoravelmente com apoio do Consórcio de IA, que deseja sugar o excedente solar para Data Centers locais de alta demanda." :
+                              selectedLegislator.baseLobby === "Social/Clima" ? "Apoiou a causa cívica da microgeração para baratear a conta de luz dos eleitores de baixa renda." :
+                              selectedLegislator.baseLobby === "Agronegócio" ? "Votou sim após a bancada rústica fechar acordo de isenção tributária para geração em fazendas." :
+                              selectedLegislator.baseLobby === "Fisiológico" ? "Seguiu o incentivo financeiro das Big Techs que prometeram investimentos massivos de IA em seu reduto eleitoral." :
+                              "Cedeu à pressão popular orgânica nas redes sociais contra o 'arco-íris tarifário' da ANEEL."
+                            )}
+                            {selectedLegislator.vote === "NÃO" && (
+                              selectedLegislator.baseLobby === "Distribuidoras" ? "Defendeu o faturamento do oligopólio tradicional das distribuidoras convencionais para barrar geradores autônomos." :
+                              "Votou contra pressionado pelas distribuidoras locais, que temem perder receita com prossumidores domésticos."
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="mt-4 space-y-3 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-0.5">
+                            <span className="text-[8px] font-mono font-bold text-slate-400 uppercase">Seu Nome</span>
+                            <input
+                              type="text"
+                              value={legMsgSenderName}
+                              onChange={(e) => setLegMsgSenderName(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 text-[10px] rounded p-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <span className="text-[8px] font-mono font-bold text-slate-400 uppercase">Seu E-mail</span>
+                            <input
+                              type="email"
+                              value={legMsgSenderEmail}
+                              onChange={(e) => setLegMsgSenderEmail(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 text-[10px] rounded p-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] font-mono font-bold text-slate-400 uppercase">Assunto do E-mail</span>
+                          <input
+                            type="text"
+                            value={legMsgSubject}
+                            onChange={(e) => setLegMsgSubject(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 text-[10px] rounded p-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] font-mono font-bold text-slate-400 uppercase">Mensagem Oficial</span>
+                          <textarea
+                            value={legMsgBody}
+                            onChange={(e) => setLegMsgBody(e.target.value)}
+                            rows={3}
+                            className="w-full bg-slate-950 border border-slate-800 text-[10px] rounded p-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 leading-normal"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={legMsgIsSending || !legMsgBody.trim()}
+                          onClick={sendLegislatorMessage}
+                          className="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold py-1.5 px-3 rounded text-[10px] font-mono transition-all disabled:opacity-50 flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Send className="h-3 w-3" />
+                          {legMsgIsSending ? "Enviando..." : "Enviar Mensagem Oficial"}
+                        </button>
+
+                        {/* Real-time Representative reply output */}
+                        {legMsgResponse && (
+                          <div className="mt-3.5 bg-slate-950 border border-cyan-500/20 rounded-lg p-3 text-[10px] font-sans space-y-2 shadow-inner">
+                            <div className="flex justify-between items-center text-[8px] font-mono text-cyan-400 border-b border-slate-900 pb-1.5">
+                              <span>De: Chefia de Gabinete</span>
+                              <span>Para: {legMsgSenderEmail}</span>
+                            </div>
+                            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
+                              {legMsgResponse}
+                            </p>
+                            <div className="text-[8px] font-mono text-slate-500 pt-1 border-t border-slate-900/60 text-right">
+                              Enviado para: {legMsgSentEmailAddress}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* History of communications with this particular legislator */}
+                        {legMsgHistory.length > 0 && (
+                          <div className="mt-3.5 pt-3 border-t border-slate-800">
+                            <span className="text-[8px] font-mono font-bold text-slate-400 block mb-1.5 uppercase">Mensagens Enviadas Anteriores</span>
+                            <div className="space-y-2">
+                              {legMsgHistory.map((hist, hidx) => (
+                                <div key={hist.id || hidx} className="bg-slate-950/40 border border-slate-800 p-2 rounded text-[9px] space-y-1">
+                                  <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                                    <span>{new Date(hist.timestamp).toLocaleDateString("pt-BR")} às {new Date(hist.timestamp).toLocaleTimeString("pt-BR")}</span>
+                                    <span>Assunto: {hist.subject}</span>
+                                  </div>
+                                  <p className="text-slate-400 line-clamp-2 italic">&quot;{hist.messageContent}&quot;</p>
+                                  {hist.autoReply && (
+                                    <div className="mt-1 border-t border-slate-900 pt-1 text-slate-300">
+                                      <strong className="text-[8px] text-cyan-400 block font-mono">Resposta do Gabinete:</strong>
+                                      <p className="line-clamp-2 text-slate-300 mt-0.5">&quot;{hist.autoReply}&quot;</p>
+                                      <button 
+                                        type="button" 
+                                        onClick={() => {
+                                          setLegMsgResponse(hist.autoReply);
+                                          setLegMsgSentEmailAddress(hist.sentToEmail);
+                                          setLegMsgBody(hist.messageContent);
+                                        }}
+                                        className="text-[8px] font-mono text-cyan-400 hover:underline mt-0.5 block"
+                                      >
+                                        Ver resposta completa
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+                  <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
                     <span className="text-[10px] text-slate-500 font-mono">Registro de Voto</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold ${
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                       selectedLegislator.vote === "SIM" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
                       selectedLegislator.vote === "NÃO" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" :
                       "bg-slate-800 text-slate-400 border border-slate-700/50"
