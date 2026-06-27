@@ -23,7 +23,9 @@ import {
   Sparkles,
   Clock,
   Search,
-  Filter
+  Filter,
+  Cpu,
+  Coins
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -152,6 +154,11 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [solarLog, setSolarLog] = useState<string>("Pronto para iniciar a articulação com o Congresso Nacional.");
   const [bigTechLobbyActive, setBigTechLobbyActive] = useState<boolean>(false);
 
+  // Estados para o Simulador de Lobby de Big Techs e IA Data Centers
+  const [dataCenterDemand, setDataCenterDemand] = useState<number>(150); // MW de capacidade instalada de data center
+  const [dataCenterPue, setDataCenterPue] = useState<number>(1.25); // PUE do data center (Power Usage Effectiveness)
+  const [utilityTariff, setUtilityTariff] = useState<number>(0.85); // Tarifa da distribuidora (R$/kWh)
+
   // Estados para rastrear deputados e senadores individualmente
   const [legislators, setLegislators] = useState<Legislator[]>(() => generateLegislators());
   const [legislatorSearch, setLegislatorSearch] = useState<string>("");
@@ -165,6 +172,14 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [batteryCapacity, setBatteryCapacity] = useState<number>(10); // em kWh
   const [dailyPeakUsage, setDailyPeakUsage] = useState<number>(6); // consumo em kWh das 18h às 21h
   const [solarPanelsCapacity, setSolarPanelsCapacity] = useState<number>(5); // kWp de geração solar instalada
+
+  // Cálculos dinâmicos de impacto de economia de energia e lobby dos Data Centers das Big Techs
+  const dcEnergyUsageAnnually = dataCenterDemand * 1000 * 24 * 365 * dataCenterPue; // em kWh/ano
+  const dcEnergyUsageMwhAnnually = dcEnergyUsageAnnually / 1000; // em MWh/ano
+  const dcCostUtility = dcEnergyUsageAnnually * utilityTariff; // Custo anual em R$ na distribuidora
+  const dcCostDecentralized = dcEnergyUsageAnnually * (utilityTariff * 0.45); // Tarifa com desconto de 55% pelo excedente solar prossumidor
+  const dcSavingsAnnually = dcCostUtility - dcCostDecentralized; // Economia líquida anual em R$
+  const lobbyFunding = dcSavingsAnnually * 0.12; // 12% da economia anual revertida em fomento local e lobby político
 
   const handleSolarNegotiate = (actionType: "agro" | "icms" | "popular" | "bigtech") => {
     if (actionType === "agro") {
@@ -186,9 +201,9 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       setSolarLog("Disparou uma campanha digital em defesa do consumidor/prossumidor solar. Mobilização popular gerou forte pressão orgânica nos parlamentares (+10% suporte em ambas as casas, +1 Token de Capital Político).");
     } else if (actionType === "bigtech") {
       setBigTechLobbyActive(true);
-      setSolarChamberSupport(prev => Math.min(prev + 25, 100));
-      setSolarSenateSupport(prev => Math.min(prev + 20, 100));
-      setSolarLog("Lobby das Big Techs ATIVADO! As gigantes da tecnologia (Google, Meta, AWS) injetaram apoio financeiro e promessas de novos Data Centers para reverter votos. Elas querem incentivar a venda livre do excedente solar dos pequenos prossumidores para canalizar energia limpa barata ao grid nacional que alimenta suas infraestruturas sedentas por IA (+25% na Câmara, +20% no Senado)!");
+      setSolarChamberSupport(prev => Math.min(prev + 28, 100));
+      setSolarSenateSupport(prev => Math.min(prev + 24, 100));
+      setSolarLog(`Lobby das Big Techs ATIVADO! Com economia estimada em R$ ${(dcSavingsAnnually / 1000000).toFixed(1)}M/ano, as gigantes da tecnologia alocaram R$ ${(lobbyFunding / 1000000).toFixed(1)}M em doações regionais de infraestrutura local, centros de IA e campanhas digitais para reverter votos (+28% suporte na Câmara, +24% no Senado).`);
     }
   };
 
@@ -607,6 +622,138 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
                 </div>
               </div>
 
+              {/* Seção Interativa: Lobby das Big Techs e Demanda por Energia de IA */}
+              <div className="space-y-4 pt-5 border-t border-slate-100">
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Cpu className="h-4 w-4 text-indigo-600" />
+                    Simulador de Lobby: Big Techs & Demanda de Energia de IA
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                    Grandes corporações de tecnologia (Big Techs) demandam volumes astronômicos de eletricidade livre de carbono para alimentar seus novos clusters de Inteligência Artificial. Elas exercem uma pressão política agressiva (lobbying) a favor da descentralização do grid para contornar o monopólio das distribuidoras tradicionais e drenar o excedente solar de pequenos geradores a preços competitivos.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 shadow-sm space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Slider 1: Demanda */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase font-mono block">Demanda do Data Center</label>
+                        <span className="text-xs font-mono font-black text-indigo-600">{dataCenterDemand} MW</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="10" 
+                        max="500" 
+                        step="10"
+                        value={dataCenterDemand}
+                        onChange={(e) => setDataCenterDemand(Number(e.target.value))}
+                        className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="text-[9px] text-slate-400 block leading-tight">Escala do cluster de processamento de modelos de IA de grande porte.</span>
+                    </div>
+
+                    {/* Slider 2: PUE */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase font-mono block">Eficiência Energética (PUE)</label>
+                        <span className="text-xs font-mono font-black text-indigo-600">{dataCenterPue.toFixed(2)}</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="1.05" 
+                        max="1.70" 
+                        step="0.05"
+                        value={dataCenterPue}
+                        onChange={(e) => setDataCenterPue(Number(e.target.value))}
+                        className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="text-[9px] text-slate-400 block leading-tight">Power Usage Effectiveness: quanto menor, mais eficiente o resfriamento.</span>
+                    </div>
+
+                    {/* Slider 3: Tarifa */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase font-mono block">Tarifa Concessionária</label>
+                        <span className="text-xs font-mono font-black text-indigo-600">R$ {utilityTariff.toFixed(2)}/kWh</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0.50" 
+                        max="1.20" 
+                        step="0.05"
+                        value={utilityTariff}
+                        onChange={(e) => setUtilityTariff(Number(e.target.value))}
+                        className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="text-[9px] text-slate-400 block leading-tight">Tarifa média corporativa praticada pelo monopólio de energia local.</span>
+                    </div>
+                  </div>
+
+                  {/* Resultados em Tempo Real */}
+                  <div className="border-t border-slate-200/60 pt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider font-mono block mb-1">Consumo Total Anual</span>
+                      <span className="text-sm font-mono font-black text-slate-900 block">{(dcEnergyUsageMwhAnnually / 1000).toFixed(1)} GWh</span>
+                      <span className="text-[9px] text-slate-400">Energia gasta em 1 ano</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider font-mono block mb-1">Custo Concessionária</span>
+                      <span className="text-sm font-mono font-black text-slate-900 block">R$ {(dcCostUtility / 1000000).toFixed(1)}M</span>
+                      <span className="text-[9px] text-slate-400">Tarifa tradicional do oligopólio</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs bg-indigo-50/20 border-indigo-100/50">
+                      <span className="text-[8px] font-bold text-indigo-600 uppercase tracking-wider font-mono block mb-1">Economia Projetada</span>
+                      <span className="text-sm font-mono font-black text-indigo-700 block flex items-center gap-1">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        R$ {(dcSavingsAnnually / 1000000).toFixed(1)}M
+                      </span>
+                      <span className="text-[9px] text-slate-400">Com excedente solar direto</span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-2xs bg-amber-50/20 border-amber-100/50">
+                      <span className="text-[8px] font-bold text-amber-700 uppercase tracking-wider font-mono block mb-1">Poder de Lobbying</span>
+                      <span className="text-sm font-mono font-black text-amber-700 block flex items-center gap-1">
+                        <Coins className="h-3.5 w-3.5" />
+                        R$ {(lobbyFunding / 1000000).toFixed(1)}M
+                      </span>
+                      <span className="text-[9px] text-slate-400">Fundo de campanha e incentivos</span>
+                    </div>
+                  </div>
+
+                  {/* Ação de Ativação de Lobbying */}
+                  <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200/40">
+                    <div className="text-[11px] text-slate-500 max-w-md">
+                      <strong>Mecanismo Corporativo:</strong> Ao reverter R$ {(lobbyFunding / 1000000).toFixed(1)}M em anúncios institucionais direcionados, incentivos tributários e doações em computadores/laboratórios nos distritos eleitorais, as Big Techs quebram as barreiras das concessionárias tradicionais, convencionando parlamentares centristas/fisiológicos e do agronegócio a apoiarem o PL da Microgeração Solar.
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={bigTechLobbyActive || solarPLApproved}
+                      onClick={() => {
+                        handleSolarNegotiate("bigtech");
+                        // Rola suavemente até o simulador de votação legislativa
+                        const element = document.getElementById("congresso-votacao-painel");
+                        if (element) {
+                          element.scrollIntoView({ behavior: "smooth" });
+                        }
+                      }}
+                      className={`w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-xs font-mono transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
+                        bigTechLobbyActive 
+                          ? "bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed" 
+                          : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/15 hover:shadow-indigo-600/25 border border-indigo-700"
+                      }`}
+                    >
+                      <Zap className={`h-4 w-4 ${bigTechLobbyActive ? "text-slate-400" : "text-amber-300 animate-pulse"}`} />
+                      {bigTechLobbyActive ? "LOBBY ATIVO NO PLENÁRIO" : "ATIVAR LOBBY NO CONGRESSO"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </motion.div>
           </AnimatePresence>
         </div>
@@ -924,7 +1071,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
         </div>
 
         {/* Dynamic Seating Grid of All 513 Deputies and 81 Senators */}
-        <div className="mt-8 border border-slate-800 bg-slate-950 rounded-3xl p-6 text-slate-200">
+        <div id="congresso-votacao-painel" className="mt-8 border border-slate-800 bg-slate-950 rounded-3xl p-6 text-slate-200">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-850">
             <div>
               <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider font-mono block mb-1">
