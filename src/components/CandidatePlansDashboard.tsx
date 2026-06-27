@@ -38,6 +38,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, setDoc, collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+import { handleFirestoreError, OperationType } from "../utils/firestore-error";
 
 
 export interface Legislator {
@@ -180,6 +181,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       setSavedSimulations(list);
     } catch (e) {
       console.error("Erro ao carregar simulações do Firestore:", e);
+      handleFirestoreError(e, OperationType.LIST, "simulations");
     }
   };
 
@@ -228,6 +230,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       loadSavedSimulations();
     } catch (e) {
       console.error("Erro ao salvar simulação de votação:", e);
+      handleFirestoreError(e, OperationType.WRITE, "simulations");
     }
   };
 
@@ -279,6 +282,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       setSocialCampaigns(list);
     } catch (e) {
       console.error("Erro ao carregar campanhas sociais do Firestore:", e);
+      handleFirestoreError(e, OperationType.LIST, "social_posts");
     }
   };
 
@@ -420,6 +424,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       setLegMsgHistory(list);
     } catch (e) {
       console.error("Erro ao carregar mensagens do legislador do Firestore:", e);
+      handleFirestoreError(e, OperationType.LIST, "legislator_communications");
     }
   };
 
@@ -493,6 +498,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
       }
     } catch (err) {
       console.error("Erro ao enviar mensagem ao parlamentar:", err);
+      handleFirestoreError(err, OperationType.WRITE, "legislator_communications");
     } finally {
       setLegMsgIsSending(false);
     }

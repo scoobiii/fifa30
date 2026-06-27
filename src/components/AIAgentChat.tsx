@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, getDoc, setDoc, collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+import { handleFirestoreError, OperationType } from "../utils/firestore-error";
 
 interface Message {
   role: "user" | "model";
@@ -89,6 +90,7 @@ export default function AIAgentChat() {
       });
     } catch (e) {
       console.error("Erro ao carregar sessão do chat:", e);
+      handleFirestoreError(e, OperationType.GET, "chat_sessions");
     }
   };
 
@@ -109,6 +111,7 @@ export default function AIAgentChat() {
       setSavedSessions(list);
     } catch (e) {
       console.error("Erro ao carregar lista de conversas salvas:", e);
+      handleFirestoreError(e, OperationType.LIST, "chat_sessions");
     }
   };
 
@@ -132,6 +135,7 @@ export default function AIAgentChat() {
       loadAllSavedSessions();
     } catch (e) {
       console.error("Erro ao salvar mensagens do chat:", e);
+      handleFirestoreError(e, OperationType.WRITE, "chat_sessions");
     }
   };
 

@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "simulation": {
+      "title": "Simulation",
+      "description": "Simulation result of legislative voting",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "chamberVotes": { "type": "integer" },
+        "senateVotes": { "type": "integer" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "social_post": {
+      "title": "SocialPost",
+      "description": "Social thread posts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "legislator_communication": {
+      "title": "LegislatorCommunication",
+      "description": "Messages sent to legislators",
+      "type": "object",
+      "properties": {
+        "legislatorId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "subject": { "type": "string" },
+        "messageContent": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "chat_session": {
+      "title": "ChatSession",
+      "description": "AI Agent Chat Session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "title": { "type": "string" },
+        "messages": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "simulations": {
+      "schema": "simulation",
+      "description": "Collection of legislative simulation states"
+    },
+    "social_posts": {
+      "schema": "social_post",
+      "description": "Collection of social posts and campaigns"
+    },
+    "legislator_communications": {
+      "schema": "legislator_communication",
+      "description": "Collection of citizen letters to legislators"
+    },
+    "chat_sessions": {
+      "schema": "chat_session",
+      "description": "Collection of saved chat sessions with AI Agents"
+    }
+  }
+}
