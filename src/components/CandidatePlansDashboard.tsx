@@ -28,6 +28,9 @@ import {
   Coins
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { db } from "../firebase";
+import { doc, setDoc, collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+
 
 export interface Legislator {
   id: string;
@@ -153,6 +156,77 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
   const [solarSenateVotes, setSolarSenateVotes] = useState<number>(0);
   const [solarLog, setSolarLog] = useState<string>("Pronto para iniciar a articulação com o Congresso Nacional.");
   const [bigTechLobbyActive, setBigTechLobbyActive] = useState<boolean>(false);
+
+  // Estados para Persistência no Firestore
+  const [savedSimulations, setSavedSimulations] = useState<any[]>([]);
+
+  const loadSavedSimulations = async () => {
+    try {
+      const colRef = collection(db, "simulations");
+      const q = query(colRef, orderBy("timestamp", "desc"), limit(8));
+      const querySnapshot = await getDocs(q);
+      const list: any[] = [];
+      querySnapshot.forEach((doc) => {
+        list.push(doc.data());
+      });
+      setSavedSimulations(list);
+    } catch (e) {
+      console.error("Erro ao carregar simulações do Firestore:", e);
+    }
+  };
+
+  const saveSimulationState = async (status: "approved" | "rejected", chamberVotes: number, senateVotes: number, finalLegs: Legislator[]) => {
+    try {
+      const docId = "sim_" + Date.now();
+      const docRef = doc(db, "simulations", docId);
+      
+      const parties = ["CENTRO-PP", "ESQUERDA-PT", "DIREITA-PL", "CENTRO-PSD", "CENTRO-MDB", "DIREITA-NOVO", "DIREITA-REP", "ESQUERDA-PSOL", "CENTRO-UNIÃO", "CENTRO-PSDB"];
+      const partyBalances: Record<string, { SIM: number, NAO: number, ABSTENCION: number }> = {};
+      parties.forEach(p => {
+        partyBalances[p] = { SIM: 0, NAO: 0, ABSTENCION: 0 };
+      });
+      
+      finalLegs.forEach(leg => {
+        const party = leg.party;
+        const vote = leg.vote;
+        if (partyBalances[party]) {
+          if (vote === "SIM") partyBalances[party].SIM++;
+          else if (vote === "NÃO") partyBalances[party].NAO++;
+          else partyBalances[party].ABSTENCION++;
+        }
+      });
+
+      const payload = {
+        id: docId,
+        timestamp: new Date().toISOString(),
+        candidateId: selectedId,
+        candidateName: currentCandidate.name,
+        candidateParty: currentCandidate.party,
+        status: status,
+        chamberVotes: chamberVotes,
+        senateVotes: senateVotes,
+        bigTechLobbyActive: bigTechLobbyActive,
+        dataCenterDemand: dataCenterDemand,
+        dataCenterPue: dataCenterPue,
+        utilityTariff: utilityTariff,
+        dcSavingsAnnually: dcSavingsAnnually,
+        lobbyFunding: lobbyFunding,
+        solarChamberSupport: solarChamberSupport,
+        solarSenateSupport: solarSenateSupport,
+        partyBalances: partyBalances
+      };
+      
+      await setDoc(docRef, payload);
+      loadSavedSimulations();
+    } catch (e) {
+      console.error("Erro ao salvar simulação de votação:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedSimulations();
+  }, []);
+
 
   // Estados para o Simulador de Lobby de Big Techs e IA Data Centers
   const [dataCenterDemand, setDataCenterDemand] = useState<number>(150); // MW de capacidade instalada de data center
@@ -295,9 +369,11 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
             setSolarVoteProgressStep(3);
             setSolarPLApproved(true);
             setSolarLog(`HISTÓRICO! O PL de Descentralização Energética foi APROVADO NO SENADO com ${simVotesSenate} votos favoráveis (mínimo 41)! O oligopólio e as distribuidoras foram derrotados pela aliança entre prossumidores e o Lobby das Big Techs. Pequenos consumidores agora monetizam seu excedente solar diretamente na rede para abastecer os Data Centers famintos de IA.`);
+            saveSimulationState("approved", simVotesChamber, simVotesSenate, finalLegislators);
           } else {
             setSolarVoteProgressStep(4);
             setSolarLog(`REJEITADO NO SENADO! Obteve apenas ${simVotesSenate} votos favoráveis dos 41 necessários. O lobby financeiro pesado das concessionárias e distribuidoras de energia tradicionais barrou o projeto na casa federativa.`);
+            saveSimulationState("rejected", simVotesChamber, simVotesSenate, finalLegislators);
           }
           setSolarIsVoting(false);
         }, 1800);
@@ -306,6 +382,7 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
         setSolarVoteProgressStep(4);
         setSolarLog(`REJEITADO NA CÂMARA DOS DEPUTADOS! Obteve apenas ${simVotesChamber} votos favoráveis dos 257 necessários. O oligopólio tradicional das distribuidoras prevaleceu na ausência de articulação financeira e política suficiente.`);
         setSolarIsVoting(false);
+        saveSimulationState("rejected", simVotesChamber, 0, updatedLegislators);
       }
     }, 1800);
   };
@@ -1068,6 +1145,65 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
               )}
             </div>
           </div>
+        </div>
+
+        {/* Saved Simulations History Section */}
+        <div className="mt-8 border border-slate-800 bg-slate-900/40 rounded-3xl p-6 text-slate-200 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
+          <div className="flex items-center gap-2 mb-5">
+            <Clock className="h-5 w-5 text-indigo-400" />
+            <h4 className="text-xs font-bold text-white font-mono uppercase tracking-wider">Histórico de Simulações de Votação (Firestore)</h4>
+          </div>
+          {savedSimulations.length === 0 ? (
+            <div className="text-center py-8 text-xs text-slate-500 font-mono border border-dashed border-slate-800 rounded-2xl">
+              Nenhuma simulação anterior de votação arquivada no Firebase ainda.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {savedSimulations.map((sim, idx) => (
+                <div key={sim.id || idx} className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between gap-3 text-xs shadow-sm hover:border-slate-700/80 transition-all">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                        sim.status === "approved" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                      }`}>
+                        {sim.status === "approved" ? "APROVADO" : "REJEITADO"}
+                      </span>
+                      <span className="text-[9px] text-slate-500 font-mono">{new Date(sim.timestamp).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                    <strong className="text-white block mt-1.5 text-xs truncate">Plano: {sim.candidateName}</strong>
+                    <span className="text-[9px] text-slate-400 font-mono block uppercase">{sim.candidateParty}</span>
+                    
+                    <div className="text-slate-400 text-[10px] mt-2.5 space-y-1 border-t border-slate-900 pt-2 font-mono">
+                      <div className="flex justify-between">
+                        <span>Câmara:</span>
+                        <strong className="text-indigo-400">{sim.chamberVotes} / 513</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Senado:</span>
+                        <strong className="text-purple-400">{sim.senateVotes > 0 ? `${sim.senateVotes} / 81` : "N/A"}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Data Center:</span>
+                        <strong className="text-slate-200">{sim.dataCenterDemand} MW</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Lobbying:</span>
+                        <strong className={sim.bigTechLobbyActive ? "text-cyan-400" : "text-slate-500"}>
+                          {sim.bigTechLobbyActive ? "Ativo" : "Inativo"}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-slate-850 pt-2.5 mt-1">
+                    <span className="text-[8px] text-slate-500 font-mono uppercase block tracking-wider leading-none">Economia das Big Techs</span>
+                    <strong className="text-emerald-400 font-mono text-xs block mt-0.5">R$ {(sim.dcSavingsAnnually / 1000000).toFixed(1)}M / ano</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Dynamic Seating Grid of All 513 Deputies and 81 Senators */}
