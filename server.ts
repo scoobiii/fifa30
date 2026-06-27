@@ -127,6 +127,36 @@ Escreva de forma extremamente científica, elegante e profissional, utilizando f
   }
 });
 
+// API route for real-time SELIC rate from Banco Central do Brasil (SGS)
+app.get("/api/selic", async (req, res) => {
+  try {
+    // SGS Serie 432: Taxa SELIC meta definida pelo COPOM
+    const response = await fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json");
+    if (!response.ok) {
+      throw new Error(`SGS API responded with status ${response.status}`);
+    }
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].valor) {
+      const valor = parseFloat(data[0].valor);
+      res.json({ 
+        selic: valor.toFixed(2) + "%", 
+        date: data[0].data, 
+        source: "Banco Central do Brasil (SGS)" 
+      });
+    } else {
+      throw new Error("Invalid response format from BCB SGS API");
+    }
+  } catch (error: any) {
+    console.warn("Using fallback/default for SELIC rate due to BCB SGS API timeout or error:", error.message);
+    res.json({ 
+      selic: "14.25%", 
+      date: "27/06/2026", 
+      source: "Banco Central do Brasil (SGS - Fallback)",
+      fallback: true
+    });
+  }
+});
+
 // API route for the RAG and Fine-Tuned AI Agent
 app.post("/api/agent", async (req, res) => {
   const { messages, currentState } = req.body;
@@ -143,7 +173,10 @@ app.post("/api/agent", async (req, res) => {
   DADOS E METAS GLOBAIS DO PROJETO:
   1. Meta de Renda (GDP per capita PPP): Meta de US$ 130.000 até 2045 (conclusão progressiva).
   2. Meta de Consumo de Energia Per Capita: Atual de 2.300 kWh, com Meta de 20.000 kWh (padrão de país altamente desenvolvido). Foco na triplicação da capacidade limpa nacional para suportar o desenvolvimento industrial. O Ministério da Infraestrutura foi rebatizado como "Ministério da Infraestrutura e Energia" para coordenar a expansão massiva da geração elétrica limpa.
-  3. Meta de Taxa SELIC: Adicionada a autoridade monetária independente "Banco Central do Brasil". A Meta é trazer a Taxa SELIC Nominal de volta para 1 dígito (< 9,00% a.a., reduzindo do patamar atual de 10,50% a.a.).
+  3. Meta de Taxa SELIC: Adicionada a autoridade monetária independente "Banco Central do Brasil". A Meta é trazer a Taxa SELIC Nominal de volta para 1 dígito (< 9,00% a.a.). A taxa SELIC atual é buscada dinamicamente em tempo real via integração direta com a API pública oficial do Banco Central do Brasil (SGS - Série 432). Caso ocorra falha de rede ou timeout, uma taxa de 14.25% é adotada como fallback/padrão seguro.
+  
+  4. ORIGEM DA CONSTITUIÇÃO DO AGENTE (RAG vs GEMINI TOKEN):
+     Quando perguntado se você está respondendo via RAG ou usando o token do Gemini: esclareça que você utiliza AMBOS! Suas respostas são geradas pelo modelo Gemini (via token de API oficial), porém enriquecidas em tempo real com um mecanismo de RAG (Geração Aumentada de Recuperação) que injeta o contexto macroeconômico, as metas de energia (20.000 kWh), renda (US$ 130.000) e a taxa SELIC em tempo real buscada do Banco Central do Brasil.
 
   CANDIDATOS PRINCIPAIS, PLANOS DE GOVERNO E PONTUAÇÃO (SWOT):
   - Lula (PT): 41% de intenção. Nota: 2/3. Plano focado em transferência de renda, bancos públicos e reindustrialização verde. Falta clareza fiscal (Meta Dívida/PIB de 50%) e incentivos diretos à produtividade científica (PISA).

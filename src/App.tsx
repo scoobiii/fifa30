@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "./components/Header";
 import IndicatorDashboard from "./components/IndicatorDashboard";
 import PollAuditSimulator from "./components/PollAuditSimulator";
@@ -10,6 +10,24 @@ import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "audit" | "plans">("dashboard");
+  const [currentSelic, setCurrentSelic] = useState<string>("14.25%");
+
+  useEffect(() => {
+    async function fetchSelic() {
+      try {
+        const res = await fetch("/api/selic");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.selic) {
+            setCurrentSelic(data.selic);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar SELIC em App:", err);
+      }
+    }
+    fetchSelic();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-slate-900 selection:text-white">
@@ -48,7 +66,7 @@ export default function App() {
             <div className="bg-slate-50 border border-slate-100 px-4 py-3 rounded-xl text-center font-mono w-full sm:w-auto min-w-[130px]">
               <span className="block text-[9px] text-slate-400 font-bold uppercase">Meta Monetária</span>
               <strong className="text-base font-black text-slate-950 block leading-tight">1 dígito (&lt;9%)</strong>
-              <span className="block text-[8px] text-indigo-600 font-bold">Taxa SELIC Nominal</span>
+              <span className="block text-[8px] text-indigo-600 font-bold">Taxa SELIC: {currentSelic}</span>
             </div>
           </div>
         </div>

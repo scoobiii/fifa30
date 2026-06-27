@@ -100,10 +100,44 @@ const IDEOLOGY_PRESETS = {
 
 export default function IndicatorDashboard() {
   const [indicators, setIndicators] = useState<PolicyIndicator[]>(INITIAL_INDICATORS);
+  const [ministries, setMinistries] = useState<Ministry[]>(INITIAL_MINISTRIES);
+  const [selicSource, setSelicSource] = useState<string>("");
   const [activeMinistry, setActiveMinistry] = useState<string | null>("fazenda");
   const [currentScenario, setCurrentScenario] = useState<SimulationScenario>(SIMULATION_SCENARIOS[0]);
   const [selectedIdeology, setSelectedIdeology] = useState<"republicanos" | "democratas" | "custom">("custom");
   const [isSpeakingMinistry, setIsSpeakingMinistry] = useState<string | null>(null);
+
+  // Load live SELIC from our Central Bank API integration
+  useEffect(() => {
+    async function fetchSelic() {
+      try {
+        const res = await fetch("/api/selic");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.selic) {
+            setSelicSource(data.source || "Banco Central do Brasil");
+            setMinistries(prev => prev.map(m => {
+              if (m.id === "banco_central") {
+                return {
+                  ...m,
+                  kpis: m.kpis.map(k => {
+                    if (k.name === "Taxa SELIC Nominal") {
+                      return { ...k, current: data.selic };
+                    }
+                    return k;
+                  })
+                };
+              }
+              return m;
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar SELIC dinâmica no painel:", err);
+      }
+    }
+    fetchSelic();
+  }, []);
 
   // Stop speech when unmounting
   useEffect(() => {
@@ -687,7 +721,7 @@ export default function IndicatorDashboard() {
 
           {/* Ministry selector pills */}
           <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-none">
-            {INITIAL_MINISTRIES.map((min) => {
+            {ministries.map((min) => {
               const isActive = activeMinistry === min.id;
               const Icon = IconMap[min.icon] || TrendingUp;
               return (
@@ -709,7 +743,7 @@ export default function IndicatorDashboard() {
 
           {/* Selected Ministry View */}
           <AnimatePresence mode="wait">
-            {INITIAL_MINISTRIES.map((min) => {
+            {ministries.map((min) => {
               if (min.id !== activeMinistry) return null;
               return (
                 <motion.div
@@ -759,7 +793,14 @@ export default function IndicatorDashboard() {
 
                   {/* KPIs Tracker */}
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono block mb-2">Indicadores Chave de Performance (KPIs)</span>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Indicadores Chave de Performance (KPIs)</span>
+                      {min.id === "banco_central" && selicSource && (
+                        <span className="text-[9px] font-semibold text-indigo-500 bg-indigo-50/80 px-2 py-0.5 rounded-full border border-indigo-100/30">
+                          Fonte Real: {selicSource}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {min.kpis.map((kpi, i) => {
                         // Calculate a dynamic progressive progress matching the current scenario and selected ideology modifiers
