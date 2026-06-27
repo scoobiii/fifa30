@@ -1,0 +1,6 @@
+{
+  "name": "Educando o Eleitor",
+  "description": "Dashboard analítico de políticas públicas e simulação de integridade estatística em pesquisas de intenção de voto.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
