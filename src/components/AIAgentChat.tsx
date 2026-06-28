@@ -266,6 +266,23 @@ export default function AIAgentChat() {
     // Save to Firestore immediately
     saveChatMessages(sessionId, updatedMsgs);
 
+    // Fetch active system prompt and custom RAG knowledge documents from Firestore
+    let customSystemPrompt = "";
+    let customRagDocuments: any[] = [];
+    try {
+      const promptDoc = await getDoc(doc(db, "system_config", "agent_prompt"));
+      if (promptDoc.exists()) {
+        customSystemPrompt = promptDoc.data().prompt;
+      }
+      
+      const ragQuery = await getDocs(collection(db, "rag_knowledge"));
+      ragQuery.forEach((docSnap) => {
+        customRagDocuments.push({ id: docSnap.id, ...docSnap.data() });
+      });
+    } catch (e) {
+      console.warn("Error pulling live RAG context from Firestore, using default:", e);
+    }
+
     try {
       const response = await fetch("/api/agent", {
         method: "POST",
@@ -276,7 +293,9 @@ export default function AIAgentChat() {
             selectedIdeology: localStorage.getItem("selected_ideology") || "Não especificado",
             effectiveGrowth: "Dinâmica por Cenário",
             projectedPib2045: "Dinâmico",
-            yearsToTarget: "Dinâmico"
+            yearsToTarget: "Dinâmico",
+            customSystemPrompt,
+            customRagDocuments
           }
         })
       });

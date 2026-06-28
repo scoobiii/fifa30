@@ -164,6 +164,17 @@ app.post("/api/agent", async (req, res) => {
     return res.status(400).json({ error: "Parâmetro 'messages' inválido ou ausente." });
   }
 
+  // Extract dynamic system prompt and RAG context from front-end state
+  const systemPrompt = currentState?.customSystemPrompt || "Você é o Agente de Decisão Racional 2026, um assistente virtual analítico altamente especializado em estatística, economia e políticas públicas brasileiras.";
+
+  let extraRagContext = "";
+  if (currentState?.customRagDocuments && Array.isArray(currentState.customRagDocuments)) {
+    extraRagContext = "\n\n=== DOCUMENTOS DO ECOSSISTEMA ENERGÉTICO (RAG DE SEGUNDO NÍVEL) ===\n";
+    currentState.customRagDocuments.forEach((doc: any, i: number) => {
+      extraRagContext += `\n[Documento RAG #${i+1}] Título: ${doc.title} | Categoria: ${doc.category}\nConteúdo: ${doc.content}\n----------------------------------------\n`;
+    });
+  }
+
   // Knowledge base for RAG context
   const ragContext = `
   --- CONTEXTO DE CONHECIMENTO DO FRAMEWORK (RAG) ---
@@ -232,12 +243,12 @@ Como posso ajudar você a analisar as metas hoje?`,
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: [
-        { role: "user", parts: [{ text: ragContext }] },
+        { role: "user", parts: [{ text: ragContext + extraRagContext }] },
         ...contents
       ],
       config: {
         temperature: 0.3,
-        systemInstruction: "Você é o Agente de Decisão Racional 2026, um assistente virtual analítico altamente especializado em estatística, economia e políticas públicas brasileiras."
+        systemInstruction: systemPrompt
       }
     });
 

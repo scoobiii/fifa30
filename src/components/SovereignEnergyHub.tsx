@@ -23,9 +23,15 @@ import {
   Info,
   QrCode,
   Share2,
-  FileText
+  FileText,
+  Sliders,
+  Sparkles,
+  BookOpen,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { db } from "../firebase";
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import LegislativeProposalManager from "./LegislativeProposalManager";
 
 // Type definition for generator
@@ -41,7 +47,18 @@ export interface GeneratorNode {
 }
 
 export default function SovereignEnergyHub() {
-  const [activeDashboard, setActiveDashboard] = useState<"legislativo_energetico" | "operacional" | "legislativo_juridico" | "financeiro">("legislativo_energetico");
+  const [activeDashboard, setActiveDashboard] = useState<"legislativo_energetico" | "operacional" | "legislativo_juridico" | "financeiro" | "ajuste_fino_rag">("legislativo_energetico");
+  
+  // States for Prompt Engineering & RAG Fine-Tuning
+  const [systemPromptValue, setSystemPromptValue] = useState<string>("Você é o Agente de Decisão Racional 2026, um assistente virtual analítico altamente especializado em estatística, economia e políticas públicas brasileiras.");
+  const [isSavingPrompt, setIsSavingPrompt] = useState<boolean>(false);
+  const [ragDocs, setRagDocs] = useState<any[]>([]);
+  const [isLoadingRag, setIsLoadingRag] = useState<boolean>(false);
+  const [isSavingRagDoc, setIsSavingRagDoc] = useState<boolean>(false);
+  const [newDocTitle, setNewDocTitle] = useState<string>("");
+  const [newDocCategory, setNewDocCategory] = useState<string>("Energia");
+  const [newDocContent, setNewDocContent] = useState<string>("");
+  const [ragAlert, setRagAlert] = useState<{ show: boolean, message: string, type: "success" | "error" } | null>(null);
   
   // States for Smart Meter (Relógio Inteligente)
   const [smartMeterValue, setSmartMeterValue] = useState<number>(342.8);
@@ -133,6 +150,156 @@ export default function SovereignEnergyHub() {
 
     return () => clearInterval(interval);
   }, [smartContractSync, smartMeterGen, smartMeterCons, isTradingRealTime, pldRate]);
+
+  // Load prompt and RAG docs on component mount
+  useEffect(() => {
+    const loadPromptAndDocs = async () => {
+      setIsLoadingRag(true);
+      try {
+        // Fetch active system prompt from Firestore
+        const promptDoc = await getDoc(doc(db, "system_config", "agent_prompt"));
+        if (promptDoc.exists()) {
+          setSystemPromptValue(promptDoc.data().prompt);
+        } else {
+          // If it doesn't exist, seed it with the default
+          await setDoc(doc(db, "system_config", "agent_prompt"), {
+            prompt: "Você é o Agente de Decisão Racional 2026, um assistente virtual analítico altamente especializado em estatística, economia e políticas públicas brasileiras.",
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        // Fetch custom RAG documents from Firestore
+        const querySnapshot = await getDocs(collection(db, "rag_knowledge"));
+        const docs: any[] = [];
+        querySnapshot.forEach((docSnap) => {
+          docs.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Seed default RAG documents if the collection is empty
+        if (docs.length === 0) {
+          const defaultRagDocs = [
+            {
+              id: "ons_sin_2026",
+              title: "Operador Nacional do Sistema (ONS) - Estrutura de Geração do SIN 2026",
+              category: "Energia",
+              content: "O Sistema Interligado Nacional (SIN) é composto por mais de 1.800 usinas geradoras outorgadas pela ANEEL, com capacidade instalada total ultrapassando 210 GW. Destacam-se as fontes hidrelétricas (57%), seguidas por eólica (15%), biomassa (8%) e solar fotovoltaica (14%). O ONS coordena o despacho em tempo real para minimizar o Custo Marginal de Operação (CMO) através da otimização estocástica via modelo Newave/Decomp."
+            },
+            {
+              id: "ccee_resolucao_mmgd",
+              title: "CCEE - Resolução Normativa para Comercialização de Excedente de Microgeração",
+              category: "Regulatório",
+              content: "A comercialização de excedente elétrico de Micro e Minigeração Distribuída (MMGD) no mercado livre ou sob regras CCEE obedece ao princípio da liquidação instantânea. Produtores podem tokenizar sua capacidade líquida não injetada através de Certificados de Crédito de Energia Renovável (RCT), convertidos de forma paritária em Pix ou DREX (moeda digital do Banco Central) utilizando carteiras assinadas por hardware e contratos inteligentes auditados."
+            },
+            {
+              id: "drex_zkp_privacy",
+              title: "Banco Central do Brasil - Especificação de Privacidade de Drex L2 Rollup",
+              category: "Monetário",
+              content: "A rede de testes do DREX implementa provas de conhecimento zero (ZK-SNARKs) na camada 2 para garantir privacidade e conformidade com o sigilo bancário. O L2 Rollup utiliza lotes criptográficos assinados que resolvem o trilema de blockchain, alcançando taxas superiores a 3.500 TPS com tempos de liquidação abaixo de 120ms, eliminando problemas históricos de latência sob rigoroso compliance regulatório."
+            }
+          ];
+
+          for (const d of defaultRagDocs) {
+            await setDoc(doc(db, "rag_knowledge", d.id), {
+              title: d.title,
+              category: d.category,
+              content: d.content,
+              updatedAt: new Date().toISOString()
+            });
+            docs.push(d);
+          }
+        }
+        setRagDocs(docs);
+      } catch (error) {
+        console.error("Erro ao carregar RAG do Firestore:", error);
+      } finally {
+        setIsLoadingRag(false);
+      }
+    };
+
+    loadPromptAndDocs();
+  }, []);
+
+  // Save custom system prompt
+  const handleSaveSystemPrompt = async () => {
+    setIsSavingPrompt(true);
+    setRagAlert(null);
+    try {
+      await setDoc(doc(db, "system_config", "agent_prompt"), {
+        prompt: systemPromptValue,
+        updatedAt: new Date().toISOString()
+      });
+      setRagAlert({
+        show: true,
+        type: "success",
+        message: "Prompt de Sistema atualizado no Firestore com sucesso! O Agente em tempo real passará a responder utilizando esta diretriz."
+      });
+    } catch (error: any) {
+      console.error("Erro ao salvar prompt no Firestore:", error);
+      setRagAlert({
+        show: true,
+        type: "error",
+        message: "Ocorreu um erro ao persistir o prompt no Firestore. Por favor, tente novamente."
+      });
+    } finally {
+      setIsSavingPrompt(false);
+    }
+  };
+
+  // Add new RAG document
+  const handleAddRagDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDocTitle.trim() || !newDocContent.trim()) {
+      setRagAlert({ show: true, type: "error", message: "Por favor, preencha o título e o conteúdo do documento RAG." });
+      return;
+    }
+
+    setIsSavingRagDoc(true);
+    setRagAlert(null);
+    try {
+      const docId = "doc_" + Math.random().toString(36).substr(2, 9);
+      const newDoc = {
+        title: newDocTitle,
+        category: newDocCategory,
+        content: newDocContent,
+        updatedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, "rag_knowledge", docId), newDoc);
+      setRagDocs(prev => [...prev, { id: docId, ...newDoc }]);
+      
+      // Clear inputs
+      setNewDocTitle("");
+      setNewDocContent("");
+      
+      setRagAlert({
+        show: true,
+        type: "success",
+        message: `Documento "${newDocTitle}" indexado e sincronizado no Firestore com sucesso!`
+      });
+    } catch (error) {
+      console.error("Erro ao adicionar documento RAG:", error);
+      setRagAlert({ show: true, type: "error", message: "Não foi possível indexar o documento no Firestore." });
+    } finally {
+      setIsSavingRagDoc(false);
+    }
+  };
+
+  // Delete RAG document
+  const handleDeleteRagDoc = async (id: string, title: string) => {
+    setRagAlert(null);
+    try {
+      await deleteDoc(doc(db, "rag_knowledge", id));
+      setRagDocs(prev => prev.filter(d => d.id !== id));
+      setRagAlert({
+        show: true,
+        type: "success",
+        message: `Documento "${title}" desindexado do Firestore.`
+      });
+    } catch (error) {
+      console.error("Erro ao desindexar:", error);
+      setRagAlert({ show: true, type: "error", message: "Erro ao excluir o documento do Firestore." });
+    }
+  };
 
   // Load ANEEL / ONS Generators structured data
   useEffect(() => {
@@ -350,6 +517,18 @@ export default function SovereignEnergyHub() {
           >
             <Coins className="h-3.5 w-3.5" />
             Financeiro (Pix/Drex)
+          </button>
+
+          <button
+            onClick={() => setActiveDashboard("ajuste_fino_rag")}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeDashboard === "ajuste_fino_rag"
+                ? "bg-slate-950 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-950 hover:bg-slate-50"
+            }`}
+          >
+            <Sliders className="h-3.5 w-3.5" />
+            Ajuste Fino RAG & Prompts
           </button>
         </div>
       </div>
@@ -924,6 +1103,214 @@ export default function SovereignEnergyHub() {
                     <RefreshCw className={`h-3.5 w-3.5 ${isMeasuringLatency ? "animate-spin" : ""}`} />
                     Medir Latência & Auditar Segurança
                   </button>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* ========================================================
+              DASHBOARD 5: AJUSTE FINO RAG & PROMPT SPRINT
+              ======================================================== */}
+          {activeDashboard === "ajuste_fino_rag" && (
+            <div className="space-y-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <Sliders className="h-6 w-6 text-indigo-600" />
+                    Engenharia de Prompt & Ajuste Fino RAG Live
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Calibre o comportamento e a base de conhecimento (Retrieval-Augmented Generation) do Agente de Decisão Racional 2026.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start md:self-auto">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  CONECTADO AO FIRESTORE EM TEMPO REAL
+                </div>
+              </div>
+
+              {ragAlert && (
+                <div className={`p-4 rounded-xl text-xs flex items-start gap-2.5 ${
+                  ragAlert.type === "success" 
+                    ? "bg-emerald-50 border border-emerald-100 text-emerald-950" 
+                    : "bg-red-50 border border-red-100 text-red-950"
+                }`}>
+                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">{ragAlert.type === "success" ? "Operação bem-sucedida!" : "Atenção:"}</span> {ragAlert.message}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                {/* Coluna 1: Ajuste de Prompt do Sistema (Prompt Engineering Sprint) */}
+                <div className="lg:col-span-6 space-y-6">
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-indigo-600" />
+                        <h4 className="text-xs font-black text-slate-900 uppercase">Instruções de Alinhamento (System Prompt)</h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">SPRINT #1</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Esta instrução define a <strong>personalidade, diretrizes analíticas, tom de voz e regras lógicas</strong> que o modelo Gemini seguirá. Edite as instruções abaixo para afinar o enquadramento estatístico, econômico e de utilidade esperada.
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 font-mono">Instrução Primária do Agente</label>
+                      <textarea
+                        value={systemPromptValue}
+                        onChange={(e) => setSystemPromptValue(e.target.value)}
+                        rows={8}
+                        className="w-full text-xs font-mono bg-white border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed text-slate-800"
+                        placeholder="Insira as instruções de sistema para calibrar o comportamento do agente..."
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleSaveSystemPrompt}
+                      disabled={isSavingPrompt}
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {isSavingPrompt ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Gravando Instruções...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                          Salvar Prompt de Alinhamento
+                        </>
+                      )}
+                    </button>
+
+                    <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100 text-[10px] text-indigo-950 leading-relaxed">
+                      💡 <strong>Dica de Prompting:</strong> Você pode ordenar que o agente priorize metas de SELIC abaixo de 9% ou force notas SWOT específicas sob critérios macroeconômicos alternativos de mercado. Qualquer alteração aqui é refletida instantaneamente no chat do Agente.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coluna 2: Base de Conhecimento RAG */}
+                <div className="lg:col-span-6 space-y-6">
+                  
+                  {/* Lista de Documentos Ativos no RAG */}
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-indigo-600" />
+                        <h4 className="text-xs font-black text-slate-900 uppercase">Documentos Ativos na Base RAG (L1 & L2)</h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">FIRESTORE INDEX</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Documentos armazenados e persistidos no Firestore. No momento em que o usuário envia uma mensagem, estes arquivos de contexto são extraídos e injetados de forma dinâmica na janela de atenção do modelo.
+                    </p>
+
+                    {isLoadingRag ? (
+                      <div className="flex items-center justify-center py-8 text-xs text-slate-400 font-mono gap-2">
+                        <RefreshCw className="h-4 w-4 animate-spin text-indigo-600" />
+                        Recuperando vetores do Firestore...
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                        {ragDocs.map((doc) => (
+                          <div key={doc.id} className="bg-white border border-slate-100 rounded-xl p-3 flex flex-col gap-1.5 shadow-sm relative group">
+                            <button
+                              onClick={() => handleDeleteRagDoc(doc.id, doc.title)}
+                              className="absolute top-3 right-3 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                              title="Remover Documento da Base RAG"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[8px] font-bold uppercase font-mono px-1.5 py-0.5 rounded ${
+                                doc.category === "Energia" ? "bg-amber-100 text-amber-800" :
+                                doc.category === "Regulatório" ? "bg-indigo-100 text-indigo-800" :
+                                doc.category === "Monetário" ? "bg-emerald-100 text-emerald-800" :
+                                "bg-slate-150 text-slate-700"
+                              }`}>
+                                {doc.category}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-mono">id: {doc.id}</span>
+                            </div>
+                            <h5 className="text-[11px] font-bold text-slate-900 pr-5">{doc.title}</h5>
+                            <p className="text-[10px] text-slate-500 leading-normal line-clamp-2 italic">&quot;{doc.content}&quot;</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form para Indexar Novo Documento RAG */}
+                  <form onSubmit={handleAddRagDocument} className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                      <Database className="h-4 w-4 text-emerald-600" />
+                      <h4 className="text-xs font-black text-slate-900 uppercase">Indexar Novo Artigo de Conhecimento RAG</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase font-bold text-slate-400 font-mono">Título do Documento</label>
+                        <input
+                          type="text"
+                          value={newDocTitle}
+                          onChange={(e) => setNewDocTitle(e.target.value)}
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          placeholder="Ex: ANEEL Resolução 1045"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase font-bold text-slate-400 font-mono">Categoria temática</label>
+                        <select
+                          value={newDocCategory}
+                          onChange={(e) => setNewDocCategory(e.target.value)}
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none"
+                        >
+                          <option value="Energia">Energia (ONS/ANEEL)</option>
+                          <option value="Regulatório">Regulatório (Excedente)</option>
+                          <option value="Monetário">Monetário (Drex/Selic)</option>
+                          <option value="Estatístico">Estatístico (Pareto/Zipf)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase font-bold text-slate-400 font-mono">Conteúdo Técnico Completo</label>
+                      <textarea
+                        value={newDocContent}
+                        onChange={(e) => setNewDocContent(e.target.value)}
+                        rows={3}
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 leading-normal"
+                        placeholder="Cole aqui as novas metas regulatórias, resoluções, estudos de mercado ou notas legislativas brasileiras..."
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSavingRagDoc}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {isSavingRagDoc ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Gravando e Indexando Vetores...
+                        </>
+                      ) : (
+                        <>
+                          <Database className="h-3.5 w-3.5" />
+                          Indexar Documento no Firestore
+                        </>
+                      )}
+                    </button>
+                  </form>
+
                 </div>
 
               </div>
