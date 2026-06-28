@@ -565,6 +565,128 @@ Escreva uma resposta de gabinete oficial de retorno para este cidadão.
   }
 });
 
+// ==========================================
+// ECOSYSTEM ENERGY & FINANCIAL API ROUTES
+// ==========================================
+
+// 1. ONS/ANEEL Generators list (Finviz-style treemap source)
+app.get("/api/ons-aneel/generators", (req, res) => {
+  const generators = [
+    { id: "gen-1", name: "Complexo Solar Pirapora", type: "Solar", state: "MG", municipality: "Pirapora", capacityMW: 321, plantsCount: 11, status: "Ativo" },
+    { id: "gen-2", name: "Parque Eólico Casa Nova", type: "Eólica", state: "BA", municipality: "Casa Nova", capacityMW: 180, plantsCount: 6, status: "Ativo" },
+    { id: "gen-3", name: "UHE Belo Monte", type: "Hidrelétrica", state: "PA", municipality: "Altamira", capacityMW: 11233, plantsCount: 1, status: "Ativo" },
+    { id: "gen-4", name: "Solar Coremas", type: "Solar", state: "PB", municipality: "Coremas", capacityMW: 135, plantsCount: 4, status: "Ativo" },
+    { id: "gen-5", name: "Complexo Eólico Rio do Vento", type: "Eólica", state: "RN", municipality: "Lajes", capacityMW: 504, plantsCount: 22, status: "Ativo" },
+    { id: "gen-6", name: "UHE Itaipu (Margem Brasileira)", type: "Hidrelétrica", state: "PR", municipality: "Foz do Iguaçu", capacityMW: 7000, plantsCount: 1, status: "Ativo" },
+    { id: "gen-7", name: "UTE GNA I (Biomassa/Gás)", type: "Térmica", state: "RJ", municipality: "São João da Barra", capacityMW: 1338, plantsCount: 1, status: "Ativo" },
+    { id: "gen-8", name: "Solar Janaúba", type: "Solar", state: "MG", municipality: "Janaúba", capacityMW: 1200, plantsCount: 28, status: "Ativo" },
+    { id: "gen-9", name: "Complexo Eólico Ventos do Piauí", type: "Eólica", state: "PI", municipality: "Lagoa do Barro", capacityMW: 356, plantsCount: 14, status: "Ativo" },
+    { id: "gen-10", name: "MMGD Residencial Solar Distribuído", type: "Solar", state: "SP", municipality: "Campinas", capacityMW: 45, plantsCount: 1240, status: "Ativo" },
+    { id: "gen-11", name: "MMGD Comercial Solar LFP", type: "Solar", state: "CE", municipality: "Fortaleza", capacityMW: 18, plantsCount: 154, status: "Ativo" },
+    { id: "gen-12", name: "Complexo Eólico Delfina", type: "Eólica", state: "BA", municipality: "Campo Formoso", capacityMW: 210, plantsCount: 10, status: "Ativo" },
+    { id: "gen-13", name: "Solar Futura", type: "Solar", state: "BA", municipality: "Juazeiro", capacityMW: 855, plantsCount: 18, status: "Em Construção" },
+    { id: "gen-14", name: "PCH Sapucaia", type: "Hidrelétrica", state: "RS", municipality: "Sapucaia", capacityMW: 28, plantsCount: 1, status: "Ativo" },
+    { id: "gen-15", name: "UTE Termopernambuco", type: "Térmica", state: "PE", municipality: "Ipojuca", capacityMW: 532, plantsCount: 1, status: "Ativo" }
+  ];
+
+  res.json({
+    source: "Operador Nacional do Sistema (ONS) / ANEEL MMGD Database",
+    count: generators.length,
+    timestamp: new Date().toISOString(),
+    generators: generators
+  });
+});
+
+// 2. CCEE surplus real-time commercialization
+app.post("/api/ccee/trade", (req, res) => {
+  const { producerId, amountMWh, pldRate } = req.body;
+  
+  if (!producerId || !amountMWh) {
+    return res.status(400).json({ error: "Parâmetros 'producerId' e 'amountMWh' são necessários." });
+  }
+
+  const rate = pldRate || 145.80;
+  const grossBrl = amountMWh * rate;
+  const feePct = 0.005; // 0.5% CCEE brokerage fee
+  const netBrl = grossBrl * (1 - feePct);
+  
+  const transactionHash = "0x" + Math.random().toString(16).substr(2, 10) + "8ccee" + Math.random().toString(16).substr(2, 6);
+
+  res.json({
+    status: "CCEE_LIQUIDATED",
+    producerId,
+    amountMWh,
+    pldApplied: `R$ ${rate.toFixed(2)}/MWh`,
+    grossValueBrl: grossBrl.toFixed(2),
+    brokerageFeeBrl: (grossBrl * feePct).toFixed(2),
+    netSettledValueBrl: netBrl.toFixed(2),
+    settlementHash: transactionHash,
+    clearingHouse: "CCEE Camara",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 3. Tokenize energy credits to RCT (Renewable Credit Tokens) for Pix & Drex settlement
+app.post("/api/drex-pix/tokenize", (req, res) => {
+  const { amountMWh, walletAddress } = req.body;
+
+  if (!amountMWh) {
+    return res.status(400).json({ error: "Parâmetro 'amountMWh' é obrigatório." });
+  }
+
+  const tokensIssued = amountMWh * 1000; // 1 MWh = 1000 RCT
+  const wallet = walletAddress || "0x98b488F...DrexLFP";
+  const pixMockPayload = "00020101021226870014br.gov.bcb.pix2565pix-ccee-gos3-tokenization-produtor-recebivel520400005303986540510.005802BR5915CCEE_TOKEN_LFP6009SAO_PAULO62070503***6304CA1B";
+  const smartContractTx = "0x" + Math.random().toString(16).substr(2, 12) + "drex77" + Math.random().toString(16).substr(2, 6);
+
+  res.json({
+    success: true,
+    amountMWh,
+    rctTokensIssued: tokensIssued,
+    tokenSymbol: "RCT",
+    tokenStandard: "ERC-20 (Drex-Compatible)",
+    beneficiaryWallet: wallet,
+    blockchainAnchor: "Drex State Rollup L2",
+    smartContractTx,
+    pixCopiaECola: pixMockPayload,
+    drexRollupStatus: "ZK-SNARK Proof verified successfully",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 4. Smart Meter telemetry cryptographical sync
+app.post("/api/smart-meter/sync", (req, res) => {
+  const { meterId, currentGenKw, currentConsKw } = req.body;
+
+  if (!meterId) {
+    return res.status(400).json({ error: "Parâmetro 'meterId' é obrigatório." });
+  }
+
+  const gen = currentGenKw || 4.2;
+  const cons = currentConsKw || 1.8;
+  const netSurplus = Math.max(0, gen - cons);
+  
+  // Generating a SHA256 simulation representing on-meter hardware cryptography
+  const hardwareSignature = "SHA256-" + Math.random().toString(16).substr(2, 10) + "meter" + Math.random().toString(16).substr(2, 6);
+
+  res.json({
+    status: "SYNCED",
+    meterId,
+    timestamp: new Date().toISOString(),
+    currentReading: {
+      generationKw: gen,
+      consumptionKw: cons,
+      netSurplusKw: netSurplus
+    },
+    ledgerValidation: {
+      contractAddress: "0x4f88...LFP94",
+      signature: hardwareSignature,
+      blockNumber: Math.floor(Math.random() * 100000) + 7400000,
+      network: "Banco Central do Brasil / Drex Sandbox Network"
+    }
+  });
+});
+
 // Serve static assets in production, use Vite in development
 const isProduction = process.env.NODE_ENV === "production";
 

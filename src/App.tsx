@@ -3,13 +3,14 @@ import Header from "./components/Header";
 import IndicatorDashboard from "./components/IndicatorDashboard";
 import PollAuditSimulator from "./utils/PollAuditSimulator";
 import CandidatePlansDashboard from "./components/CandidatePlansDashboard";
+import SovereignEnergyHub from "./components/SovereignEnergyHub";
 import AIAgentChat from "./components/AIAgentChat";
 import { INITIAL_CANDIDATES } from "./data";
-import { Sliders, Vote, HelpCircle, Activity, Github, ShieldCheck, BookOpen } from "lucide-react";
+import { Sliders, Vote, HelpCircle, Activity, Github, ShieldCheck, BookOpen, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "audit" | "plans">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "soberania" | "audit" | "plans">("soberania");
   const [currentSelic, setCurrentSelic] = useState<string>("14.25%");
 
   useEffect(() => {
@@ -72,7 +73,19 @@ export default function App() {
         </div>
 
         {/* Tab Selection Navigation Bar */}
-        <div className="flex border-b border-slate-200 mb-8 p-1 bg-white/50 backdrop-blur rounded-xl border max-w-md">
+        <div className="flex flex-wrap border border-slate-200 mb-8 p-1 bg-white/50 backdrop-blur rounded-xl max-w-2xl gap-1">
+          <button
+            onClick={() => setActiveTab("soberania")}
+            className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === "soberania"
+                ? "bg-slate-950 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            }`}
+          >
+            <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
+            Soberania Energética GOS3
+          </button>
+
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
@@ -119,7 +132,9 @@ export default function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
           >
-            {activeTab === "dashboard" ? (
+            {activeTab === "soberania" ? (
+              <SovereignEnergyHub />
+            ) : activeTab === "dashboard" ? (
               <IndicatorDashboard />
             ) : activeTab === "audit" ? (
               <PollAuditSimulator />
