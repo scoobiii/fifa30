@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "./components/Header";
 import IndicatorDashboard from "./components/IndicatorDashboard";
-import PollAuditSimulator from "./components/PollAuditSimulator";
+import PollAuditSimulator from "./utils/PollAuditSimulator";
 import CandidatePlansDashboard from "./components/CandidatePlansDashboard";
 import AIAgentChat from "./components/AIAgentChat";
 import { INITIAL_CANDIDATES } from "./data";

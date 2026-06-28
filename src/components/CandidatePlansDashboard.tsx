@@ -39,6 +39,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { db } from "../firebase";
 import { doc, setDoc, collection, getDocs, orderBy, query, limit } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../utils/firestore-error";
+import LegislativePortal from "./LegislativePortal";
+import LegislativeProposalManager from "./LegislativeProposalManager";
 
 
 export interface Legislator {
@@ -1099,6 +1101,17 @@ export default function CandidatePlansDashboard({ candidates }: CandidatePlansDa
         </div>
 
       </div>
+
+      {/* Portal de Sugestões Legislativas e Propostas */}
+      <LegislativePortal 
+        onApprovalInfluence={(chamberDelta, senateDelta) => {
+          setSolarChamberSupport(prev => Math.min(prev + chamberDelta, 100));
+          setSolarSenateSupport(prev => Math.min(prev + senateDelta, 100));
+        }} 
+      />
+
+      {/* Gerenciador Técnico de Rascunhos de Propostas Legislativas */}
+      <LegislativeProposalManager />
 
       {/* Legislative Solar Microgeneration Surplus Sale Module */}
       <div className="mt-12 pt-10 border-t border-slate-100">

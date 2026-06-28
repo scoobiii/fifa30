@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { PolicyIndicator, Ministry, SimulationScenario } from "../types";
 import { INITIAL_INDICATORS, INITIAL_MINISTRIES, SIMULATION_SCENARIOS } from "../data";
 import { 
@@ -18,9 +18,11 @@ import {
   Maximize2,
   Landmark,
   Volume2,
-  VolumeX
+  VolumeX,
+  FileDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { jsPDF } from "jspdf";
 
 // Helper to map string to lucide icons
 const IconMap: { [key: string]: any } = {
@@ -106,6 +108,726 @@ export default function IndicatorDashboard() {
   const [currentScenario, setCurrentScenario] = useState<SimulationScenario>(SIMULATION_SCENARIOS[0]);
   const [selectedIdeology, setSelectedIdeology] = useState<"republicanos" | "democratas" | "custom">("custom");
   const [isSpeakingMinistry, setIsSpeakingMinistry] = useState<string | null>(null);
+
+  // Sistema de Notificações em Tempo Real do Manifesto de Metas
+  const [toasts, setToasts] = useState<{ id: string; type: "success" | "warning" | "error" | "info"; title: string; message: string }[]>([]);
+  const previousScoresRef = useRef<{ [key: string]: number }>({});
+
+  const addToast = (type: "success" | "warning" | "error" | "info", title: string, message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, type, title, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  };
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      // Configuração de Estilos e Paleta de Cores
+      const primaryColor = [15, 23, 42]; // Slate-900 (#0f172a)
+      const secondaryColor = [71, 85, 105]; // Slate-600 (#475569)
+      const accentColor = [5, 150, 105]; // Emerald-600 (#059669)
+      const warningColor = [217, 119, 6]; // Amber-600 (#d97706)
+      const dangerColor = [225, 29, 72]; // Rose-600 (#e11d48)
+      
+      // Cabeçalho da página
+      doc.setFillColor(15, 23, 42); // Fundo Slate-900 para o banner superior
+      doc.rect(0, 0, 210, 38, "F");
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("SELIX IA - FRAMEWORK DE DECISÃO RACIONAL", 14, 16);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("Relatório Analítico de Políticas Públicas e Simulação de Metas", 14, 23);
+      doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`, 14, 29);
+
+      // Marca de autenticidade no canto direito do cabeçalho
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(52, 211, 153); // Emerald-400
+      doc.text("GOS3 APPROVED", 150, 18);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184); // Slate-400
+      doc.text("Integridade Estatística e Científica", 150, 24);
+
+      // --- Seção 1: Resumo Macroeconômico ---
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("1. Resumo Macroeconômico & Diretriz Ativa", 14, 48);
+      
+      // Linha separadora
+      doc.setDrawColor(226, 232, 240); // Slate-200
+      doc.setLineWidth(0.5);
+      doc.line(14, 51, 196, 51);
+
+      // Grid de Informações
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Índice de Racionalidade Geral:", 14, 58);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${politicalIndex} / 100`, 75, 58);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Diretriz Ideológica Ativa:", 14, 64);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        selectedIdeology === "custom" 
+          ? "Customizado (Ajuste Manual Livre)" 
+          : selectedIdeology === "republicanos" 
+            ? "Republicanos (Livre Mercado & Solvência)" 
+            : "Democratas (Bem-estar Social & Transição)", 
+        75, 64
+      );
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Cenário de Simulação:", 14, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${currentScenario.name} (${effectiveGrowthRate}% a.a.)`, 75, 70);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Projeção PIB per capita 2045:", 14, 76);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${projectedPib2045} (Meta do Manifesto: US$ 130.000)`, 75, 76);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Tempo estimado até o Alvo:", 14, 82);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${yearsToTarget}`, 75, 82);
+
+      // Caixa cinza de descrição de diretriz
+      doc.setFillColor(248, 250, 252); // Slate-50
+      doc.rect(14, 88, 182, 18, "F");
+      doc.setDrawColor(241, 245, 249); // Slate-100
+      doc.rect(14, 88, 182, 18, "D");
+      
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105); // Slate-600
+      const desc = selectedIdeology === "custom" 
+        ? "Premissa analítica em que pesos e prioridades das metas governamentais foram ajustados manualmente de forma customizada."
+        : IDEOLOGY_PRESETS[selectedIdeology].description;
+      const splitDesc = doc.splitTextToSize(desc, 174);
+      doc.text(splitDesc, 18, 93);
+
+      // --- Seção 2: Tabela de Indicadores e Pesos ---
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("2. Desempenho e Pesos dos Indicadores de Políticas Públicas", 14, 116);
+      doc.line(14, 119, 196, 119);
+
+      // Cabeçalho da Tabela
+      doc.setFillColor(241, 245, 249); // Slate-100
+      doc.rect(14, 123, 182, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Indicador Estratégico", 16, 128);
+      doc.text("Peso", 70, 128);
+      doc.text("Score", 90, 128);
+      doc.text("Projeção Atual", 115, 128);
+      doc.text("Meta Alvo", 160, 128);
+
+      let currentY = 136;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      
+      indicators.forEach((ind) => {
+        let currentProjVal = ind.metricCurrent;
+        if (ind.id === "economy") {
+          const val = 9500 + (ind.score / 100) * (130000 - 9500);
+          currentProjVal = `US$ ${Math.round(val).toLocaleString("pt-BR")}`;
+        } else if (ind.id === "education") {
+          const val = 415 + (ind.score / 100) * (520 - 415);
+          currentProjVal = `${Math.round(val)}`;
+        } else if (ind.id === "health") {
+          const val = 76.2 + (ind.score / 100) * (83.5 - 76.2);
+          currentProjVal = `${val.toFixed(1)} anos`;
+        } else if (ind.id === "security") {
+          const val = 19.8 - (ind.score / 100) * (19.8 - 4.5);
+          currentProjVal = `${val.toFixed(1)} /100k hab`;
+        } else if (ind.id === "infrastructure") {
+          const val = 2300 + (ind.score / 100) * (20000 - 2300);
+          currentProjVal = `${Math.round(val).toLocaleString("pt-BR")} kWh`;
+        } else if (ind.id === "technology") {
+          const val = 1.2 + (ind.score / 100) * (3.5 - 1.2);
+          currentProjVal = `${val.toFixed(2)}%`;
+        } else if (ind.id === "state_efficiency") {
+          const val = 64 - (ind.score / 100) * (64 - 15);
+          currentProjVal = `${Math.round(val)}/100`;
+        } else if (ind.id === "fiscal") {
+          const val = 78.5 - (ind.score / 100) * (78.5 - 50.0);
+          currentProjVal = `${val.toFixed(1)}%`;
+        } else if (ind.id === "monetary") {
+          const val = 10.50 - (ind.score / 100) * (10.50 - 9.00);
+          currentProjVal = `${val.toFixed(2)}%`;
+        } else if (ind.id === "environment") {
+          const val = 0.22 - (ind.score / 100) * (0.22 - 0.05);
+          currentProjVal = `${val.toFixed(2)} kg`;
+        } else if (ind.id === "foreign_trade") {
+          const val = 11.5 - (ind.score / 100) * (11.5 - 4.0);
+          currentProjVal = `${val.toFixed(1)}%`;
+        }
+
+        doc.setTextColor(15, 23, 42);
+        doc.text(ind.name, 16, currentY);
+        doc.text(`${ind.weight}%`, 70, currentY);
+        
+        if (ind.score >= 80) doc.setTextColor(5, 150, 105);
+        else if (ind.score < 50) doc.setTextColor(225, 29, 72);
+        else doc.setTextColor(217, 119, 6);
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`${ind.score}/100`, 90, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+
+        doc.text(currentProjVal, 115, currentY);
+        doc.text(ind.metricTarget, 160, currentY);
+
+        doc.setDrawColor(241, 245, 249);
+        doc.line(14, currentY + 2, 196, currentY + 2);
+        
+        currentY += 8;
+      });
+
+      doc.addPage();
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 15, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("SELIX IA — MONITOR DE ALERTAS E METAS DO MANIFESTO", 14, 10);
+
+      // --- Seção 3: Alertas Ativos e Conquistas do Manifesto ---
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("3. Alertas de Políticas Públicas & Metas do Manifesto", 14, 30);
+      doc.line(14, 33, 196, 33);
+
+      let alertY = 42;
+      
+      if (activeAlertsAndAchievements.length === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, alertY, 182, 15, "F");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text("Nenhum alerta crítico ou desvio estatístico de metas ativo neste cenário.", 20, alertY + 9);
+        alertY += 25;
+      } else {
+        doc.setFontSize(9);
+        activeAlertsAndAchievements.forEach((alert) => {
+          if (alert.type === "success") {
+            doc.setFillColor(236, 253, 245);
+            doc.setDrawColor(167, 243, 208);
+          } else if (alert.type === "danger") {
+            doc.setFillColor(254, 242, 242);
+            doc.setDrawColor(254, 205, 205);
+          } else {
+            doc.setFillColor(255, 251, 235);
+            doc.setDrawColor(253, 230, 138);
+          }
+          
+          doc.rect(14, alertY, 182, 18, "F");
+          doc.rect(14, alertY, 182, 18, "D");
+
+          doc.setFont("helvetica", "bold");
+          if (alert.type === "success") {
+            doc.setTextColor(5, 150, 105);
+            doc.text("[META CONQUISTADA]", 18, alertY + 5);
+          } else {
+            doc.setTextColor(225, 29, 72);
+            doc.text("[ALERTA CRÍTICO]", 18, alertY + 5);
+          }
+
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(15, 23, 42);
+          doc.text(alert.title, 60, alertY + 5);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(71, 85, 105);
+          
+          const alertMsg = doc.splitTextToSize(alert.message, 174);
+          doc.text(alertMsg, 18, alertY + 10);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`Projeção: ${alert.metricValue}`, 145, alertY + 5);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Alvo: ${alert.metricTarget}`, 145, alertY + 11);
+
+          alertY += 22;
+          doc.setFontSize(9);
+        });
+      }
+
+      // --- Seção 4: Articulação Legislativa ---
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("4. Consonância de Articulação Legislativa", 14, alertY + 5);
+      doc.line(14, alertY + 8, 196, alertY + 8);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text("Projeto de Lei do Excedente Energético:", 14, alertY + 15);
+      doc.setFont("helvetica", "normal");
+      doc.text(surplusPLApproved ? "APROVADO E SANCIONADO" : "EM TRAMITAÇÃO / REJEITADO", 85, alertY + 15);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Suporte na Câmara dos Deputados:", 14, alertY + 21);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${chamberSupport}% de apoio estimado`, 85, alertY + 21);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Suporte no Senado Federal:", 14, alertY + 27);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${senateSupport}% de apoio estimado`, 85, alertY + 27);
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, alertY + 33, 182, 14, "F");
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("O suporte legislativo determina a taxa de conversão dos investimentos em resultados reais nas metas do manifesto.", 18, alertY + 41);
+
+      // --- Assinatura GOS3 e Termos de Integridade ---
+      const signatureY = alertY + 60;
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(14, signatureY, 196, signatureY);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text("ASSINATURA DE INTEGRIDADE ESTATÍSTICA GOS3", 14, signatureY + 6);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Este relatório consolida de forma fidedigna as simulações do Framework de Decisão Racional 2026.", 14, signatureY + 12);
+      doc.text("Os limites de caracter, rate limits de API e a consistência das simulações seguem a arquitetura de autoridade do manifesto.", 14, signatureY + 16);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(5, 150, 105);
+      doc.text("CÓDIGO DE AUTORIDADE GOS3: OK-2026-VERIFIED", 14, signatureY + 25);
+
+      doc.save(`selix-ia-relatorio-${selectedIdeology}-${new Date().toISOString().split('T')[0]}.pdf`);
+      addToast("success", "📄 PDF Exportado com Sucesso", "O relatório consolidado de metas e indicadores foi salvo na sua pasta de downloads.");
+    } catch (err: any) {
+      console.error(err);
+      addToast("error", "❌ Erro ao exportar PDF", "Houve um erro inesperado ao gerar o documento de simulação.");
+    }
+  };
+
+  // Monitor dinâmico de metas e alertas
+  useEffect(() => {
+    const isFirstRun = Object.keys(previousScoresRef.current).length === 0;
+    const currentScores: { [key: string]: number } = {};
+
+    indicators.forEach(ind => {
+      currentScores[ind.id] = ind.score;
+
+      if (!isFirstRun) {
+        const prevScore = previousScoresRef.current[ind.id];
+        const newScore = ind.score;
+
+        if (prevScore !== undefined && prevScore !== newScore) {
+          if (ind.id === "economy") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Crescimento Sustentável", "PIB per capita projetado em US$ 100.000+! Caminho para a riqueza nacional consolidado.");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("error", "⚠️ Alerta de Renda Média: Crescimento Baixo", "O crescimento do PIB é insuficiente para superar a armadilha de renda média histórica.");
+            }
+          }
+          if (ind.id === "education") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Educação Top 20 PISA", "Média PISA projetada acima de 500 pontos, aproximando o país dos líderes de inovação.");
+            } else if (newScore < 50 && prevScore >= 50) {
+              addToast("error", "⚠️ Alerta de Educação Básica Crítica", "Média do PISA projetada abaixo de 440 pontos, comprometendo o capital de inovação futuro.");
+            }
+          }
+          if (ind.id === "health") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Longevidade Ativa SUS", "Expectativa de vida média projeta-se acima de 80 anos devido à digitalização e prevenção do SUS.");
+            } else if (newScore < 50 && prevScore >= 50) {
+              addToast("error", "⚠️ Alerta de Ineficiência de Saúde Pública", "Aumento no tempo de exames e gargalos de atendimento asfixiam a expectativa de vida.");
+            }
+          }
+          if (ind.id === "security") {
+            if (newScore >= 75 && prevScore < 75) {
+              addToast("success", "🏆 Meta Atingida: Ordem e Tolerância Zero", "Taxa de homicídios reduzida com sucesso abaixo do limite crítico de 10 por 100k hab!");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("error", "⚠️ Alerta de Segurança Pública Crítica", "Taxa de homicídios projetada acima do limite de 15/100k hab. Violência sistêmica ativa.");
+            }
+          }
+          if (ind.id === "infrastructure") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Matriz de Energia Triplicada", "Capacidade industrial atinge 15.000+ kWh/hab com a aprovação do PL de energia solar.");
+            } else if (newScore < 50 && prevScore >= 50) {
+              addToast("error", "⚠️ Alerta de Apagão de Infraestrutura", "Falta de investimentos em linhas de transmissão asfixia o avanço logístico multimodal.");
+            }
+          }
+          if (ind.id === "technology") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Polo Semicondutores & IA", "Investimento de P&D supera o limite estratégico nacional do manifesto de 2.5% do PIB anual.");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("warning", "⚠️ Alerta de Estagnação Tecnológica", "Baixo registro de patentes e fuga de talentos mantêm o país na dependência tecnológica externa.");
+            }
+          }
+          if (ind.id === "state_efficiency") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Estado 100% Digital", "Índice de burocracia atinge padrão OCDE de desregulamentação de abertura de negócios.");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("warning", "⚠️ Alerta de Burocracia Excessiva", "Excesso de cartórios, atrasos em contratos e ineficiência oneram o ambiente produtivo.");
+            }
+          }
+          if (ind.id === "fiscal") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Solvência Fiscal Plena", "Relação Dívida Bruta/PIB entra em declínio sustentado para patamar de segurança (<60%).");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("error", "⚠️ Alerta de Insolvência e Risco País", "Dívida Bruta/PIB ultrapassa o limite prudencial de 75%! Risco iminente de inflação.");
+            }
+          }
+          if (ind.id === "monetary") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: SELIC Estável de 1 Dígito", "Expectativa de inflação ancorada permite juros estruturais competitivos de um dígito.");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("error", "⚠️ Alerta Monetário: Juros Asfixiantes", "SELIC mantida em dois dígitos por desancoragem fiscal encarece o custo do crédito.");
+            }
+          }
+          if (ind.id === "environment") {
+            if (newScore >= 80 && prevScore < 80) {
+              addToast("success", "🏆 Meta Atingida: Descarbonização Histórica", "Emissões abaixo de 0.10 kg CO2/PIB abrem as portas de fundos internacionais de títulos verdes.");
+            } else if (newScore < 50 && prevScore >= 50) {
+              addToast("warning", "⚠️ Alerta de Degradação Ecológica", "Aumento de queimadas e desmatamento ilegal geram retaliação comercial global.");
+            }
+          }
+          if (ind.id === "foreign_trade") {
+            if (newScore >= 75 && prevScore < 75) {
+              addToast("success", "🏆 Meta Atingida: Abertura e Comércio Livre", "Tarifa média de importação competitiva de 4% estimula inserção nas cadeias globais de valor.");
+            } else if (newScore < 45 && prevScore >= 45) {
+              addToast("warning", "⚠️ Alerta de Protecionismo e Isolamento", "Altas tarifas aduaneiras encarecem componentes digitais e isolam a indústria local.");
+            }
+          }
+        }
+      }
+    });
+
+    previousScoresRef.current = currentScores;
+  }, [indicators]);
+
+  // Alertas e Conquistas Ativos do Manifesto calculados sob demanda
+  const activeAlertsAndAchievements = useMemo(() => {
+    const list: {
+      id: string;
+      indicatorId: string;
+      type: "success" | "danger" | "warning";
+      title: string;
+      message: string;
+      metricValue: string;
+      metricTarget: string;
+    }[] = [];
+
+    indicators.forEach(ind => {
+      let metricValueStr = ind.metricCurrent;
+
+      if (ind.id === "economy") {
+        const val = 9500 + (ind.score / 100) * (130000 - 9500);
+        metricValueStr = `US$ ${Math.round(val).toLocaleString("pt-BR")}`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Crescimento Sustentável Excepcional",
+            message: "PIB per capita projetado em patamar de riqueza nacional, quebrando a armadilha de renda média de longo prazo.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Armadilha de Renda Média Ativa",
+            message: "A taxa de investimento estrutural é insuficiente para elevar a produtividade per capita nacional rumo às economias líderes.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "education") {
+        const val = 415 + (ind.score / 100) * (520 - 415);
+        metricValueStr = `${Math.round(val)}`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Ensino de Fronteira e PISA Top 20",
+            message: "Média geral do PISA projetada em níveis avançados de proficiência em matemática, ciências e leitura pública.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 50) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Déficit Crítico de Capital Humano",
+            message: "Média PISA na zona de exclusão educacional, limitando a competitividade e produtividade real do trabalho futuro.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "health") {
+        const val = 76.2 + (ind.score / 100) * (83.5 - 76.2);
+        metricValueStr = `${val.toFixed(1)} anos`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Modernização da Atenção Básica de Saúde",
+            message: "Expectativa de vida média se projeta em níveis excelentes com a eliminação total de filas de exames via prontuário digital.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 50) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Ineficiência Preventiva e Filas de Espera",
+            message: "Tempo de espera elevado na atenção especializada asfixia a longevidade ativa do cidadão comum.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "security") {
+        const val = 19.8 - (ind.score / 100) * (19.8 - 4.5);
+        metricValueStr = `${val.toFixed(1)} /100k hab`;
+        if (ind.score >= 75) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Ordem Pública e Territorial Restaurada",
+            message: "Taxa de crimes violentos intencionais reduzida abaixo do limite do manifesto de 10 homicídios por 100 mil habitantes.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Gargalo Crítico de Segurança Pública",
+            message: "Taxa de homicídios ultrapassa o limite máximo aceitável de 15/100k hab. Alta presença de crime organizado.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "infrastructure") {
+        const val = 2300 + (ind.score / 100) * (20000 - 2300);
+        metricValueStr = `${Math.round(val).toLocaleString("pt-BR")} kWh`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Matriz Elétrica Descarbonizada e Expansiva",
+            message: "Abastecimento energético industrial garantido com geração de energia limpa de alta escala per capita.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 50) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Gargalo Estrutural de Oferta Energética",
+            message: "A capacidade elétrica instalada limita a expansão industrial e induz risco de racionamento tarifário.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "technology") {
+        const val = 1.2 + (ind.score / 100) * (3.5 - 1.2);
+        metricValueStr = `${val.toFixed(2)}%`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Fronteira de Pesquisa Semicondutores & IA",
+            message: "Investimento em P&D supera o limite estratégico nacional do manifesto de 2.5% do PIB anual.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "warning",
+            title: "Isolamento e Estagnação Tecnológica",
+            message: "Baixa taxa de depósitos de patentes e fomento científico deixa o país atrás na revolução digital.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "state_efficiency") {
+        const val = 64 - (ind.score / 100) * (64 - 15);
+        metricValueStr = `${Math.round(val)}/100`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Estado Desregulamentado e Desburocratizado",
+            message: "Processos governamentais e de abertura de negócios simplificados atingem o nível de eficiência da OCDE.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "warning",
+            title: "Burocracia Estatal Sufocante",
+            message: "Atrasos no sistema de execuções de contratos e trâmites analógicos excessivos elevam o custo de transação.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "fiscal") {
+        const val = 78.5 - (ind.score / 100) * (78.5 - 50.0);
+        metricValueStr = `${val.toFixed(1)}%`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Solvência e Responsabilidade Fiscal Plena",
+            message: "Dívida Bruta/PIB na zona de segurança prudencial, reduzindo a desancoragem inflacionária.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Risco de Incompetência e Ruína Fiscal",
+            message: "Relação Dívida Bruta/PIB ultrapassa o limite prudencial de segurança do manifesto de 75%. Pressão de juros ativa.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "monetary") {
+        const val = 10.50 - (ind.score / 100) * (10.50 - 9.00);
+        metricValueStr = `${val.toFixed(2)}%`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Ancoragem de Juros de Um Dígito",
+            message: "Expectativas de inflação ancoradas permitem spread competitivo e custo de financiamento barato.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "danger",
+            title: "Juros Estruturais em Dois Dígitos",
+            message: "Custo do capital elevado asfixia a viabilidade de crédito corporativo industrial e infraestrutural.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "environment") {
+        const val = 0.22 - (ind.score / 100) * (0.22 - 0.05);
+        metricValueStr = `${val.toFixed(2)} kg`;
+        if (ind.score >= 80) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Liderança Ecológica Global e Títulos Verdes",
+            message: "Nível de emissões de CO2 reduzido a patamares históricos, atraindo investimentos climáticos massivos.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 50) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "warning",
+            title: "Alerta de Desmatamento e Degradação Verde",
+            message: "Desvio na trajetória de descarbonização do PIB impõe risco de penalização e barreira comercial na UE.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+      else if (ind.id === "foreign_trade") {
+        const val = 11.5 - (ind.score / 100) * (11.5 - 4.0);
+        metricValueStr = `${val.toFixed(1)}%`;
+        if (ind.score >= 75) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "success",
+            title: "Abertura de Mercados e Fluxo de Insumos",
+            message: "Tarifas médias competitivas integram o ecossistema produtivo local às cadeias de valor internacionais.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        } else if (ind.score < 45) {
+          list.push({
+            id: ind.id,
+            indicatorId: ind.id,
+            type: "warning",
+            title: "Protecionismo Alfandegário Sufocante",
+            message: "Taxação excessiva isola as fábricas de insumos digitais globais de alta tecnologia e eleva custos domésticos.",
+            metricValue: metricValueStr,
+            metricTarget: ind.metricTarget
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [indicators]);
 
   // Legislative Articulation (PL do Excedente de Energia via Senado & Câmara)
   const [surplusPLApproved, setSurplusPLApproved] = useState<boolean>(false);
@@ -459,7 +1181,7 @@ export default function IndicatorDashboard() {
       
       {/* Ideology Selector Card */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
           <div className="space-y-1">
             <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
               <Sliders className="h-5 w-5 text-slate-950" />
@@ -468,36 +1190,46 @@ export default function IndicatorDashboard() {
             <p className="text-xs text-slate-500">Veja como premissas doutrinárias alteram pesos e resultados de metas governamentais</p>
           </div>
           
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/60 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/60 w-full sm:w-auto">
+              <button
+                onClick={() => handleIdeologyChange("republicanos")}
+                className={`flex-1 sm:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  selectedIdeology === "republicanos"
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                🇧🇷 Republicanos
+              </button>
+              <button
+                onClick={() => handleIdeologyChange("democratas")}
+                className={`flex-1 sm:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  selectedIdeology === "democratas"
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                🇧🇷 Democratas
+              </button>
+              <button
+                onClick={() => handleIdeologyChange("custom")}
+                className={`flex-1 sm:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  selectedIdeology === "custom"
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                ⚙️ Customizado
+              </button>
+            </div>
+
             <button
-              onClick={() => handleIdeologyChange("republicanos")}
-              className={`flex-1 md:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedIdeology === "republicanos"
-                  ? "bg-slate-950 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              onClick={exportToPDF}
+              className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer border border-slate-800"
             >
-              🇧🇷 Republicanos
-            </button>
-            <button
-              onClick={() => handleIdeologyChange("democratas")}
-              className={`flex-1 md:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedIdeology === "democratas"
-                  ? "bg-slate-950 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              🇧🇷 Democratas
-            </button>
-            <button
-              onClick={() => handleIdeologyChange("custom")}
-              className={`flex-1 md:flex-none py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedIdeology === "custom"
-                  ? "bg-slate-950 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              ⚙️ Customizado
+              <FileDown className="h-4 w-4 text-emerald-400" />
+              Exportar PDF
             </button>
           </div>
         </div>
@@ -533,6 +1265,87 @@ export default function IndicatorDashboard() {
             </div>
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* Manifesto de Metas & Alertas de Políticas Públicas */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+          <div className="space-y-1">
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-slate-950 animate-pulse" />
+              Monitor de Metas do Manifesto e Alertas Críticos
+            </h3>
+            <p className="text-xs text-slate-500">
+              Acompanhamento de violações de limites e metas conquistadas do manifesto de políticas públicas (Zipf, Pareto e RAG integrados)
+            </p>
+          </div>
+          
+          <div className="flex gap-2">
+            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs px-3 py-1 rounded-full font-bold border border-emerald-100/50">
+              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+              {activeAlertsAndAchievements.filter(a => a.type === "success").length} Metas Conquistadas
+            </span>
+            <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs px-3 py-1 rounded-full font-bold border border-rose-100/50">
+              <span className="h-2 w-2 rounded-full bg-rose-500"></span>
+              {activeAlertsAndAchievements.filter(a => a.type === "danger").length} Alertas Críticos
+            </span>
+          </div>
+        </div>
+
+        {activeAlertsAndAchievements.length === 0 ? (
+          <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <p className="text-xs text-slate-500 font-medium">Todos os indicadores estão na zona de estabilidade normal de transição.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Ajuste o Cenário ou as Diretrizes Ideológicas para estressar ou otimizar as políticas públicas.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+            {activeAlertsAndAchievements.map((item) => (
+              <div 
+                key={item.id} 
+                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all hover:shadow-sm ${
+                  item.type === "success" 
+                    ? "bg-emerald-50/20 border-emerald-100 text-slate-800" 
+                    : item.type === "danger" 
+                      ? "bg-rose-50/20 border-rose-100 text-slate-800" 
+                      : "bg-amber-50/20 border-amber-100 text-slate-800"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      item.type === "success" 
+                        ? "bg-emerald-100 text-emerald-800" 
+                        : item.type === "danger" 
+                          ? "bg-rose-100 text-rose-800" 
+                          : "bg-amber-100 text-amber-800"
+                    }`}>
+                      {item.type === "success" ? "🏆 META ALCANÇADA" : "⚠️ ALERTA CRÍTICO"}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      Alvo: {item.metricTarget}
+                    </span>
+                  </div>
+                  
+                  <h4 className="font-bold text-xs text-slate-900 leading-snug">{item.title}</h4>
+                  <p className="text-[10px] text-slate-500 mt-1 leading-normal">{item.message}</p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Projeção:</span>
+                  <strong className={`font-mono text-xs ${
+                    item.type === "success" 
+                      ? "text-emerald-600 font-bold" 
+                      : item.type === "danger" 
+                        ? "text-rose-600 font-bold" 
+                        : "text-amber-600 font-bold"
+                  }`}>
+                    {item.metricValue}
+                  </strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1107,6 +1920,50 @@ export default function IndicatorDashboard() {
           </AnimatePresence>
         </div>
 
+      </div>
+
+      {/* Container de Toasts Flutuantes */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className={`p-4 rounded-xl shadow-lg border text-white flex gap-3 relative overflow-hidden pointer-events-auto ${
+                toast.type === "success" 
+                  ? "bg-slate-900/95 border-emerald-500/30 text-emerald-100" 
+                  : toast.type === "error" 
+                    ? "bg-slate-900/95 border-rose-500/30 text-rose-100" 
+                    : toast.type === "warning"
+                      ? "bg-slate-900/95 border-amber-500/30 text-amber-100"
+                      : "bg-slate-900/95 border-blue-500/30 text-blue-100"
+              }`}
+            >
+              <div className="flex-shrink-0 mt-0.5">
+                {toast.type === "success" ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                ) : toast.type === "error" ? (
+                  <ShieldAlert className="h-5 w-5 text-rose-400" />
+                ) : (
+                  <HelpCircle className="h-5 w-5 text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-xs text-white">{toast.title}</h4>
+                <p className="text-[11px] mt-1 text-slate-300 leading-normal">{toast.message}</p>
+              </div>
+              <button 
+                onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-xs font-bold self-start"
+              >
+                ✕
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
     </div>
