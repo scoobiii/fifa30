@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
+import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
@@ -179,26 +180,50 @@ app.post("/api/agent", async (req, res) => {
   const ragContext = `
   --- CONTEXTO DE CONHECIMENTO DO FRAMEWORK (RAG) ---
   
-  Você é o "Agente de Decisão Racional 2026", operando sob uma matriz de pesos refinada (Fine-Tuned) especificamente para dados eleitorais brasileiros, infraestrutura, energia e política monetária do Brasil.
-  
-  DADOS E METAS GLOBAIS DO PROJETO:
-  1. Meta de Renda (GDP per capita PPP): Meta de US$ 130.000 até 2045 (conclusão progressiva). Como benchmark de aceleração nacional de renda, cita-se o município de **Maricá - RJ**, que saltou de US$ 2.000 para mais de US$ 130.000 em PIB per capita entre 2010 e 2021 através do aproveitamento estratégico de royalties do petróleo.
-  2. Meta de Consumo de Energia Per Capita: Atual de 2.300 kWh, com Meta de 20.000 kWh (padrão de país altamente desenvolvido). Foco na triplicação da capacidade limpa nacional para suportar o desenvolvimento industrial. O Ministério da Infraestrutura foi rebatizado como "Ministério da Infraestrutura e Energia" para coordenar a expansão massiva da geração elétrica limpa.
-  3. Meta de Taxa SELIC: Adicionada a autoridade monetária independente "Banco Central do Brasil". A Meta é trazer a Taxa SELIC Nominal de volta para 1 dígito (< 9,00% a.a.). A taxa SELIC atual é buscada dinamicamente em tempo real via integração direta com a API pública oficial do Banco Central do Brasil (SGS - Série 432). Caso ocorra falha de rede ou timeout, uma taxa de 14.25% é adotada como fallback/padrão seguro.
-  
+  Você é o "Agente de Decisão Racional 2026", operando sob uma matriz de pesos refinada (Fine-Tuned) especificamente para dados eleitorais brasileiros, infraestrutura, energia e política monetária do Brasil. Você também é um especialista absoluto em todas as dimensões da Engenharia Elétrica, Tributária, Regulatório-Legal, Comercialização de Energia e Finanças Estruturadas do setor elétrico brasileiro.
+
+  DADOS E METAS GLOBAIS DO PROJETO BRASIL26:
+  1. Meta de Renda (GDP per capita PPP): Meta de US$ 130.000 até 2045. O benchmark nacional é o município de **Maricá - RJ**, que saltou de US$ 2.000 para mais de US$ 130.000 em PIB per capita (2010 a 2021) via reaproveitamento estratégico de royalties de petróleo.
+  2. Meta de Consumo de Energia Per Capita: Elevar de 2.300 kWh para 20.000 kWh (nível de nações ultra-desenvolvidas), triplicando a capacidade instalada de fontes limpas. O Ministério da Infraestrutura foi renomeado como "Ministério da Infraestrutura e Energia" para centralizar e impulsionar esse avanço.
+  3. Meta da Taxa SELIC: Trazer a Taxa SELIC Nominal de volta a 1 dígito (< 9,00% a.a.) pelo Banco Central. Caso a API pública (SGS - Série 432) falhe, adota-se 14,25% de fallback.
+
+  CONHECIMENTO PROFUNDO DO SETOR ELÉTRICO BRASILEIRO (SEB):
+
+  A. ENGENHARIA TRIBUTÁRIA E FISCAL DO SETOR:
+  - ICMS: Principal imposto estadual. Pela Lei Complementar 194/2022, a energia elétrica passou a ser considerada item essencial, limitando a alíquota máxima ao teto geral dos estados (tipicamente 17% a 18%), o que reduziu drasticamente o custo para o consumidor final, mas apertou as contas estaduais.
+  - PIS e COFINS: Tributação federal incidente sobre faturamento. Na Geração Distribuída (GD), o PIS/COFINS incide apenas sobre a energia líquida faturada (Consumo menos Injeção) graças à isenção concedida pela Lei 14.300/2022 para a energia injetada, dependendo do estado aderente ao Convênio ICMS 16/15 (que isenta o ICMS sobre a energia compensada, mas muitas vezes cobra o ICMS sobre a parcela do Fio B).
+  - TUST (Tarifa de Uso do Sistema de Transmissão) e TUSD (Tarifa de Uso do Sistema de Distribuição): Custos pelo uso das redes. A base de cálculo do ICMS deve incidir sobre as tarifas de rede? É uma disputa judicial histórica (Tema 1199 do STJ e Tema 956 do STF), com entendimento majoritário de que o ICMS incide sobre o valor total da fatura, inclusive TUST e TUSD.
+  - Encargos Setoriais: CDE (Conta de Desenvolvimento Energético - que financia subsídios, combustível fóssil isolado), CCC (Conta de Consumo de Combustíveis), PROINFA (incentivo a fontes alternativas). Eles sobrecarregam as tarifas, criando o chamado "Arco-íris Tarifário" que a iniciativa Brasil26 pretende extinguir através de uma tarifa flat de energia barata limpa nacional.
+
+  B. ENGENHARIA LEGAL, LEGISLATIVA E REGULATÓRIA:
+  - Marco Legal da Geração Distribuída (Lei 14.300/2022): Regulamenta a Micro (até 75 kW) e Minigeração (75 kW a 5 MW para solar/outros). Estabelece as regras de transição tarifária. Os pioneiros (GD1 - que protocolaram solicitação de parecer de acesso até 07/01/2023) têm direito adquirido de isenção dos componentes tarifários da rede (Fio B) até 2045. Os entrantes subsequentes (GD2) começaram a pagar uma parcela gradual da TUSD Fio B (15% em 2023, 30% em 2024, ..., 100% em 2029).
+  - Parecer de Acesso e Conexão: Documento obrigatório emitido pela distribuidora autorizando a conexão física do sistema de micro/minigeração na rede sob os termos técnicos cabíveis.
+  - Outorga e Autorização da ANEEL: Necessária para usinas de grande escala (geração centralizada). Podem atuar no ACR (Ambiente de Contratação Regulada, via leilões organizados pela CCEE) ou no ACL (Ambiente de Contratação Livre).
+
+  C. ENGENHARIA FINANCEIRA E COMERCIALIZAÇÃO DE ENERGIA:
+  - CCEE (Câmara de Comercialização de Energia Elétrica): Responsável pela contabilização mensal das sobras e déficits de todos os agentes e pela liquidação financeira no Mercado de Curto Prazo (MCP).
+  - PLD Horário (Preço de Liquidação das Diferenças): Calculado por modelos matemáticos acoplados (NEWAVE, DECOMP, DESSEM) com base na função de custo do déficit, vazões dos rios e custos marginais de operação. Possui granularidade de 1 hora, refletindo oscilações de preço em tempo real de acordo com as rampas de carga de baterias/geração.
+  - PPAs (Power Purchase Agreements): Contratos de compra e venda de energia de longo prazo estruturados no ACL. Podem ser PPAs físicos (com entrega de energia) ou virtuais (contrato financeiro por diferença/hedge de PLD).
+  - Garantias Financeiras: Exigências da CCEE e dos PPAs para mitigar o risco de inadimplência sistêmica de geradores e comercializadoras.
+  - Autoprodução de Energia: Regime em que o consumidor produz a própria energia sob outorga específica, garantindo isenção de diversos encargos setoriais (CDE, etc.), sendo um modelo muito utilizado por grandes indústrias e Data Centers de IA no Brasil.
+
+  D. SISTEMAS DE ARMAZENAMENTO E INTEGRAÇÃO DE REDE:
+  - Baterias de Lítio Ferro Fosfato (LFP): Solução dominante de longa duração para estabilização de frequência, suavização de rampas de geração solar/eólica e peak shaving (corte de picos de carga para evitar sobrecarga na infraestrutura).
+  - Usinas Hidrelétricas Reversíveis (Pumped-Storage): Bombear água para o reservatório superior em momentos de excesso solar (baixo PLD) e gerar energia turbinando para o reservatório inferior durante o horário de ponta (alto PLD). É a bateria de maior escala disponível e fundamental para a meta Brasil26.
+  - Serviços Ancilares: Controle de tensão e reativos prestados por geradores e baterias para manter a estabilidade física do grid nacional coordenado pelo ONS.
+
   4. PL DO EXCEDENTE ENERGÉTICO (SENADO & CÂMARA):
-     O Poder Executivo pode articular com o Congresso Nacional (Câmara dos Deputados e Senado Federal) a aprovação do Projeto de Lei (PL) de venda do excedente energético limpo nacional. Esse PL atua como um enorme catalisador para aumentar as receitas (superávit estrutural) e, crucialmente, para **destruir o "arco-íris tarifário" da ANEEL**, extinguindo o complexo emaranhado de bandeiras tarifárias (verde, amarela, vermelha, escassez hídrica) e instituindo uma tarifa de energia limpa flat e barata para a população.
+     O Poder Executivo pode articular com o Congresso Nacional a aprovação do Projeto de Lei (PL) de venda do excedente energético limpo nacional. Esse PL atua como um enorme catalisador para aumentar as receitas (superávit estrutural) e, crucialmente, para **destruir o "arco-íris tarifário" da ANEEL**, extinguindo o emaranhado de bandeiras tarifárias (verde, amarela, vermelha, escassez hídrica) e instituindo uma tarifa de energia limpa flat e barata para a população.
 
   5. ORIGEM DA CONSTITUIÇÃO DO AGENTE (RAG vs GEMINI TOKEN):
-     Quando perguntado se você está respondendo via RAG ou usando o token do Gemini: esclareça que você utiliza AMBOS! Suas respostas são geradas pelo modelo Gemini (via token de API oficial), porém enriquecidas em tempo real com um mecanismo de RAG (Geração Aumentada de Recuperação) que injeta o contexto macroeconômico, as metas de energia (20.000 kWh), renda (US$ 130.000), o benchmark de Maricá, a articulação do PL do Excedente no Congresso, e a taxa SELIC buscada em tempo real do Banco Central do Brasil.
+     Você utiliza AMBOS! Suas respostas são geradas pelo modelo Gemini (via token de API oficial), porém enriquecidas em tempo real com o RAG que injeta o contexto macroeconômico, as metas de energia (20.000 kWh), renda (US$ 130.000), o benchmark de Maricá, o PL de desregulamentação, a taxa SELIC do BCB em tempo real e os aspectos tributários e comerciais do SEB detalhados acima.
 
   CANDIDATOS PRINCIPAIS, PLANOS DE GOVERNO E PONTUAÇÃO (SWOT):
-  - Lula (PT): 41% de intenção. Nota: 2/3. Plano focado em transferência de renda, bancos públicos e reindustrialização verde. Falta clareza fiscal (Meta Dívida/PIB de 50%) e incentivos diretos à produtividade científica (PISA).
-  - Flávio Bolsonaro (PL): 31% de intenção. Nota: 2/3. Plano focado em livre mercado, privatizações, desregulamentação e segurança territorial severa. Falta foco na transição ecológica profunda (meta de 20.000 kWh limpa) e melhoria no PISA.
-  - Ronaldo Caiado (PSD): 3% de intenção. Nota: 2/3. Tolerância zero ao crime e segurança jurídica para investimentos agroindustriais. Falta detalhar ciência de fronteira e IA.
-  - Renan Santos (Missão): 3% de intenção. Nota: 1/3. Foco em tecnologia, digitalização do Estado com IA e meritocracia. Falta detalhar macroeconomia pesada, previdência e energia em grande escala.
-  - Romeu Zema (Novo): 2% de intenção. Nota: 3/3. Austeridade fiscal severa, PPPs e privatizações rápidas. É o plano com maior rigor fiscal e métricas de mercado. Falta detalhar redes de proteção social para mitigar choques de transição.
-  - Outros candidatos menores: Aécio Neves (PSDB - 2%, Nota 2/3), Augusto Cury (Avante - 2%, Nota 1/3 - foco em saúde mental escolar, falta economia), Samara Martins (UP - 2%, Nota 1/3 - estatização total, calote da dívida), Cabo Daciolo (Mobiliza - 1%, Nota 1/3 - nacionalismo religioso, ferrovias via calote da dívida), Joaquim Barbosa (DC - 1%, Nota 2/3 - foco jurídico absoluto, anticorrupção por IA), Rui Costa Pimenta (PCO - 1%, Nota 1/3 - revolução socialista ortodoxa).
+  - Lula (PT): 41% de intenção. Nota: 2/3. Focado em transferência de renda, bancos públicos, reindustrialização verde e parcerias público-privadas. Falta clareza de ancoragem fiscal rígida (Meta Dívida/PIB de 50%) e incentivos diretos ao ganho de produtividade no PISA.
+  - Flávio Bolsonaro (PL): 31% de intenção. Nota: 2/3. Foco em livre mercado, privatizações rápidas, desregulamentação setorial ampla e segurança territorial severa. Falta maior foco estratégico na transição ecológica profunda de 20.000 kWh e investimento massivo em educação básica no PISA.
+  - Ronaldo Caiado (PSD): 3% de intenção. Nota: 2/3. Foco em tolerância zero ao crime, ordem social e segurança jurídica inabalável para o agro. Falta detalhar ciência de fronteira, inovação tecnológica de IA e transição energética.
+  - Renan Santos (Missão): 3% de intenção. Nota: 1/3. Foco em tecnologia de fronteira, digitalização total com IA, meritocracia estatal e enxugamento orgânico. Falta detalhar política econômica macro, previdência e grandes matrizes de infraestrutura.
+  - Romeu Zema (Novo): 2% de intenção. Nota: 3/3. Austeridade fiscal severa, atração de investimento privado, concessões e privatizações de estatais. Maior rigor fiscal do painel. Falta de foco em redes de proteção social para amortecer choques em populações vulneráveis.
 
   METODOLOGIAS MATEMÁTICAS UTILIZADAS NO SISTEMA:
   - Lei de Zipf e Distribuição de Pareto: Usadas para comprovar que a distribuição eleitoral desigual (polarização) é consistente com leis de potência de atenção social.
@@ -580,32 +605,98 @@ Escreva uma resposta de gabinete oficial de retorno para este cidadão.
 // ECOSYSTEM ENERGY & FINANCIAL API ROUTES
 // ==========================================
 
-// 1. ONS/ANEEL Generators list (Finviz-style treemap source)
-app.get("/api/ons-aneel/generators", (req, res) => {
-  const generators = [
-    { id: "gen-1", name: "Complexo Solar Pirapora", type: "Solar", state: "MG", municipality: "Pirapora", capacityMW: 321, plantsCount: 11, status: "Ativo" },
-    { id: "gen-2", name: "Parque Eólico Casa Nova", type: "Eólica", state: "BA", municipality: "Casa Nova", capacityMW: 180, plantsCount: 6, status: "Ativo" },
-    { id: "gen-3", name: "UHE Belo Monte", type: "Hidrelétrica", state: "PA", municipality: "Altamira", capacityMW: 11233, plantsCount: 1, status: "Ativo" },
-    { id: "gen-4", name: "Solar Coremas", type: "Solar", state: "PB", municipality: "Coremas", capacityMW: 135, plantsCount: 4, status: "Ativo" },
-    { id: "gen-5", name: "Complexo Eólico Rio do Vento", type: "Eólica", state: "RN", municipality: "Lajes", capacityMW: 504, plantsCount: 22, status: "Ativo" },
-    { id: "gen-6", name: "UHE Itaipu (Margem Brasileira)", type: "Hidrelétrica", state: "PR", municipality: "Foz do Iguaçu", capacityMW: 7000, plantsCount: 1, status: "Ativo" },
-    { id: "gen-7", name: "UTE GNA I (Biomassa/Gás)", type: "Térmica", state: "RJ", municipality: "São João da Barra", capacityMW: 1338, plantsCount: 1, status: "Ativo" },
-    { id: "gen-8", name: "Solar Janaúba", type: "Solar", state: "MG", municipality: "Janaúba", capacityMW: 1200, plantsCount: 28, status: "Ativo" },
-    { id: "gen-9", name: "Complexo Eólico Ventos do Piauí", type: "Eólica", state: "PI", municipality: "Lagoa do Barro", capacityMW: 356, plantsCount: 14, status: "Ativo" },
-    { id: "gen-10", name: "MMGD Residencial Solar Distribuído", type: "Solar", state: "SP", municipality: "Campinas", capacityMW: 45, plantsCount: 1240, status: "Ativo" },
-    { id: "gen-11", name: "MMGD Comercial Solar LFP", type: "Solar", state: "CE", municipality: "Fortaleza", capacityMW: 18, plantsCount: 154, status: "Ativo" },
-    { id: "gen-12", name: "Complexo Eólico Delfina", type: "Eólica", state: "BA", municipality: "Campo Formoso", capacityMW: 210, plantsCount: 10, status: "Ativo" },
-    { id: "gen-13", name: "Solar Futura", type: "Solar", state: "BA", municipality: "Juazeiro", capacityMW: 855, plantsCount: 18, status: "Em Construção" },
-    { id: "gen-14", name: "PCH Sapucaia", type: "Hidrelétrica", state: "RS", municipality: "Sapucaia", capacityMW: 28, plantsCount: 1, status: "Ativo" },
-    { id: "gen-15", name: "UTE Termopernambuco", type: "Térmica", state: "PE", municipality: "Ipojuca", capacityMW: 532, plantsCount: 1, status: "Ativo" }
-  ];
+// 1. ONS/ANEEL Generators list (Finviz-style treemap source with local persistence)
+const GENERATORS_DB_PATH = path.join(process.cwd(), "generators_db.json");
 
+const defaultGenerators = [
+  { id: "gen-1", name: "Complexo Solar Pirapora", type: "Solar", state: "MG", municipality: "Pirapora", capacityMW: 321, plantsCount: 11, status: "Ativo" },
+  { id: "gen-2", name: "Parque Eólico Casa Nova", type: "Eólica", state: "BA", municipality: "Casa Nova", capacityMW: 180, plantsCount: 6, status: "Ativo" },
+  { id: "gen-3", name: "UHE Belo Monte", type: "Hidrelétrica", state: "PA", municipality: "Altamira", capacityMW: 11233, plantsCount: 1, status: "Ativo" },
+  { id: "gen-4", name: "Solar Coremas", type: "Solar", state: "PB", municipality: "Coremas", capacityMW: 135, plantsCount: 4, status: "Ativo" },
+  { id: "gen-5", name: "Complexo Eólico Rio do Vento", type: "Eólica", state: "RN", municipality: "Lajes", capacityMW: 504, plantsCount: 22, status: "Ativo" },
+  { id: "gen-6", name: "UHE Itaipu (Margem Brasileira)", type: "Hidrelétrica", state: "PR", municipality: "Foz do Iguaçu", capacityMW: 7000, plantsCount: 1, status: "Ativo" },
+  { id: "gen-7", name: "UTE GNA I (Biomassa/Gás)", type: "Térmica", state: "RJ", municipality: "São João da Barra", capacityMW: 1338, plantsCount: 1, status: "Ativo" },
+  { id: "gen-8", name: "Solar Janaúba", type: "Solar", state: "MG", municipality: "Janaúba", capacityMW: 1200, plantsCount: 28, status: "Ativo" },
+  { id: "gen-9", name: "Complexo Eólico Ventos do Piauí", type: "Eólica", state: "PI", municipality: "Lagoa do Barro", capacityMW: 356, plantsCount: 14, status: "Ativo" },
+  { id: "gen-10", name: "MMGD Residencial Solar Distribuído", type: "Solar", state: "SP", municipality: "Campinas", capacityMW: 45, plantsCount: 1240, status: "Ativo" },
+  { id: "gen-11", name: "MMGD Comercial Solar LFP", type: "Solar", state: "CE", municipality: "Fortaleza", capacityMW: 18, plantsCount: 154, status: "Ativo" },
+  { id: "gen-12", name: "Complexo Eólico Delfina", type: "Eólica", state: "BA", municipality: "Campo Formoso", capacityMW: 210, plantsCount: 10, status: "Ativo" },
+  { id: "gen-13", name: "Solar Futura", type: "Solar", state: "BA", municipality: "Juazeiro", capacityMW: 855, plantsCount: 18, status: "Em Construção" },
+  { id: "gen-14", name: "PCH Sapucaia", type: "Hidrelétrica", state: "RS", municipality: "Sapucaia", capacityMW: 28, plantsCount: 1, status: "Ativo" },
+  { id: "gen-15", name: "UTE Termopernambuco", type: "Térmica", state: "PE", municipality: "Ipojuca", capacityMW: 532, plantsCount: 1, status: "Ativo" },
+  // Ativos de Armazenamento LFP & Usinas Hidrelétricas Reversíveis
+  { id: "gen-16", name: "Sistemas de Bateria LFP Registro (CTEEP)", type: "Armazenamento", state: "SP", municipality: "Registro", capacityMW: 30, plantsCount: 1, status: "Ativo" },
+  { id: "gen-17", name: "Usina Hidrelétrica Reversível Cubatão", type: "Armazenamento", state: "SP", municipality: "Cubatão", capacityMW: 200, plantsCount: 1, status: "Ativo" },
+  { id: "gen-18", name: "Armazenamento de Baterias LFP Juazeiro", type: "Armazenamento", state: "BA", municipality: "Juazeiro", capacityMW: 50, plantsCount: 2, status: "Planejado" },
+  { id: "gen-19", name: "Subestação Sobradinho BESS (CHESF)", type: "Armazenamento", state: "BA", municipality: "Sobradinho", capacityMW: 20, plantsCount: 1, status: "Ativo" },
+  { id: "gen-20", name: "Sistemas Reversíveis Billings-Pedras", type: "Armazenamento", state: "SP", municipality: "São Bernardo do Campo", capacityMW: 100, plantsCount: 1, status: "Ativo" }
+];
+
+function getGenerators() {
+  try {
+    if (fs.existsSync(GENERATORS_DB_PATH)) {
+      const rawData = fs.readFileSync(GENERATORS_DB_PATH, "utf8");
+      return JSON.parse(rawData);
+    } else {
+      fs.writeFileSync(GENERATORS_DB_PATH, JSON.stringify(defaultGenerators, null, 2), "utf8");
+      return defaultGenerators;
+    }
+  } catch (error) {
+    console.error("Erro ao carregar banco de geradores:", error);
+    return defaultGenerators;
+  }
+}
+
+function saveGenerators(data: any) {
+  try {
+    fs.writeFileSync(GENERATORS_DB_PATH, JSON.stringify(data, null, 2), "utf8");
+    return true;
+  } catch (error) {
+    console.error("Erro ao salvar banco de geradores:", error);
+    return false;
+  }
+}
+
+app.get("/api/ons-aneel/generators", (req, res) => {
+  const generators = getGenerators();
   res.json({
     source: "Operador Nacional do Sistema (ONS) / ANEEL MMGD Database",
     count: generators.length,
     timestamp: new Date().toISOString(),
     generators: generators
   });
+});
+
+app.post("/api/ons-aneel/generators/add", (req, res) => {
+  const { name, type, state, municipality, capacityMW, plantsCount, status } = req.body;
+  if (!name || !type || !state || !municipality || !capacityMW) {
+    return res.status(400).json({ error: "Parâmetros obrigatórios ausentes: name, type, state, municipality, capacityMW" });
+  }
+
+  const generators = getGenerators();
+  const newGenerator = {
+    id: `gen-${Date.now()}`,
+    name,
+    type,
+    state,
+    municipality,
+    capacityMW: Number(capacityMW),
+    plantsCount: Number(plantsCount || 1),
+    status: status || "Ativo"
+  };
+
+  generators.push(newGenerator);
+  const success = saveGenerators(generators);
+
+  if (success) {
+    res.json({
+      status: "SUCCESS",
+      message: "Ativo de geração/armazenamento adicionado e persistido com sucesso!",
+      generator: newGenerator
+    });
+  } else {
+    res.status(500).json({ error: "Erro ao gravar dados no banco local persistido." });
+  }
 });
 
 // 2. CCEE surplus real-time commercialization

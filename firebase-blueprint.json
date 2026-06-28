@@ -43,6 +43,27 @@
         "title": { "type": "string" },
         "messages": { "type": "array" }
       }
+    },
+    "rag_document": {
+      "title": "RagDocument",
+      "description": "RAG knowledge base document for AI reasoning",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "system_config": {
+      "title": "SystemConfig",
+      "description": "System and agent prompts configuration",
+      "type": "object",
+      "properties": {
+        "prompt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -61,6 +82,14 @@
     "chat_sessions": {
       "schema": "chat_session",
       "description": "Collection of saved chat sessions with AI Agents"
+    },
+    "rag_knowledge": {
+      "schema": "rag_document",
+      "description": "Collection of RAG knowledge base items"
+    },
+    "system_config": {
+      "schema": "system_config",
+      "description": "Collection for agent system prompts and system-level configuration"
     }
   }
 }

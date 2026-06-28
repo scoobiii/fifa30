@@ -25,5 +25,15 @@ service cloud.firestore {
     match /chat_sessions/{sessionId} {
       allow read, write: if true;
     }
+
+    // Rules for rag_knowledge collection
+    match /rag_knowledge/{docId} {
+      allow read, write: if true;
+    }
+
+    // Rules for system_config collection
+    match /system_config/{docId} {
+      allow read, write: if true;
+    }
   }
 }

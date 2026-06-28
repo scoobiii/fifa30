@@ -13,6 +13,8 @@ import {
   Check, 
   Copy, 
   Activity, 
+  Battery,
+  Plus,
   Globe, 
   DollarSign, 
   Layers, 
@@ -38,12 +40,94 @@ import LegislativeProposalManager from "./LegislativeProposalManager";
 export interface GeneratorNode {
   id: string;
   name: string;
-  type: "Solar" | "Eólica" | "Hidrelétrica" | "Térmica";
+  type: "Solar" | "Eólica" | "Hidrelétrica" | "Térmica" | "Meta" | "Financeiro" | "Drex" | string;
   state: string;
   municipality: string;
   capacityMW: number;
   plantsCount: number;
-  status: "Ativo" | "Em Construção";
+  status: "Ativo" | "Em Construção" | "Planejado" | string;
+}
+
+// Component Interface for GoF Composite Pattern
+export interface EnergyComponent {
+  getId(): string;
+  getName(): string;
+  getType(): string;
+  getCapacity(): number; // Capacity in MW or Equivalent units
+  getPlantsCount(): number;
+  getChildren(): EnergyComponent[];
+  isLeaf(): boolean;
+}
+
+// Leaf Class representing individual units / goals
+export class GeneratorLeaf implements EnergyComponent {
+  id: string;
+  name: string;
+  type: string;
+  state: string;
+  municipality: string;
+  capacityMW: number;
+  plantsCount: number;
+  status: string;
+
+  constructor(node: any) {
+    this.id = node.id;
+    this.name = node.name;
+    this.type = node.type;
+    this.state = node.state || "BR";
+    this.municipality = node.municipality || "Nacional";
+    this.capacityMW = node.capacityMW || 0;
+    this.plantsCount = node.plantsCount || 1;
+    this.status = node.status || "Ativo";
+  }
+
+  getId(): string { return this.id; }
+  getName(): string { return this.name; }
+  getType(): string { return this.type; }
+  getCapacity(): number { return this.capacityMW; }
+  getPlantsCount(): number { return this.plantsCount; }
+  getChildren(): EnergyComponent[] { return []; }
+  isLeaf(): boolean { return true; }
+}
+
+// Composite Class representing groups / categories / states
+export class EnergyComposite implements EnergyComponent {
+  id: string;
+  name: string;
+  type: string;
+  children: EnergyComponent[] = [];
+
+  constructor(id: string, name: string, type: string) {
+    this.id = id;
+    this.name = name;
+    this.type = type;
+  }
+
+  getId(): string { return this.id; }
+  getName(): string { return this.name; }
+  getType(): string { return this.type; }
+
+  getCapacity(): number {
+    return this.children.reduce((acc, child) => acc + child.getCapacity(), 0);
+  }
+
+  getPlantsCount(): number {
+    return this.children.reduce((acc, child) => acc + child.getPlantsCount(), 0);
+  }
+
+  getChildren(): EnergyComponent[] {
+    return this.children;
+  }
+
+  isLeaf(): boolean { return false; }
+
+  add(child: EnergyComponent): void {
+    this.children.push(child);
+  }
+
+  remove(childId: string): void {
+    this.children = this.children.filter(c => c.getId() !== childId);
+  }
 }
 
 export default function SovereignEnergyHub() {
@@ -82,6 +166,69 @@ export default function SovereignEnergyHub() {
   const [selectedNode, setSelectedNode] = useState<GeneratorNode | null>(null);
   const [treemapData, setTreemapData] = useState<GeneratorNode[]>([]);
   const [isLoadingTreemap, setIsLoadingTreemap] = useState<boolean>(false);
+  const [selectedCompositeId, setSelectedCompositeId] = useState<string>("root");
+
+  // States for adding custom generator or storage asset to local database via server API
+  const [isAddingAsset, setIsAddingAsset] = useState<boolean>(false);
+  const [newAssetName, setNewAssetName] = useState<string>("");
+  const [newAssetType, setNewAssetType] = useState<string>("Solar");
+  const [newAssetProvince, setNewAssetProvince] = useState<string>("");
+  const [newAssetCity, setNewAssetCity] = useState<string>("");
+  const [newAssetCapacity, setNewAssetCapacity] = useState<string>("");
+  const [newAssetPlants, setNewAssetPlants] = useState<string>("1");
+  const [newAssetStatus, setNewAssetStatus] = useState<string>("Ativo");
+  const [isSavingAsset, setIsSavingAsset] = useState<boolean>(false);
+  const [assetSuccessMsg, setAssetSuccessMsg] = useState<string>("");
+
+  const handleAddAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAssetName || !newAssetProvince || !newAssetCity || !newAssetCapacity) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+    setIsSavingAsset(true);
+    try {
+      const response = await fetch("/api/ons-aneel/generators/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newAssetName,
+          type: newAssetType,
+          state: newAssetProvince.toUpperCase(),
+          municipality: newAssetCity,
+          capacityMW: Number(newAssetCapacity),
+          plantsCount: Number(newAssetPlants || 1),
+          status: newAssetStatus
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Update local state with the new generator
+        setTreemapData(prev => [...prev, data.generator]);
+        setAssetSuccessMsg("Ativo nacional cadastrado e persistido com sucesso!");
+        
+        // Clear fields and close form slowly
+        setTimeout(() => {
+          setIsAddingAsset(false);
+          setAssetSuccessMsg("");
+          setNewAssetName("");
+          setNewAssetProvince("");
+          setNewAssetCity("");
+          setNewAssetCapacity("");
+          setNewAssetPlants("1");
+          setNewAssetStatus("Ativo");
+        }, 2000);
+      } else {
+        console.error("Erro ao adicionar ativo de energia.");
+        alert("Ocorreu uma falha ao cadastrar o ativo no servidor persistente.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha na comunicação com o backend.");
+    } finally {
+      setIsSavingAsset(false);
+    }
+  };
 
   // States for Financeiro: Pix & Drex
   const [tokenizeAmount, setTokenizeAmount] = useState<number>(50); // MWh to tokenize
@@ -329,7 +476,12 @@ export default function SovereignEnergyHub() {
             { id: "gen-12", name: "Complexo Eólico Delfina", type: "Eólica", state: "BA", municipality: "Campo Formoso", capacityMW: 210, plantsCount: 10, status: "Ativo" },
             { id: "gen-13", name: "Solar Futura", type: "Solar", state: "BA", municipality: "Juazeiro", capacityMW: 855, plantsCount: 18, status: "Em Construção" },
             { id: "gen-14", name: "PCH Sapucaia", type: "Hidrelétrica", state: "RS", municipality: "Sapucaia", capacityMW: 28, plantsCount: 1, status: "Ativo" },
-            { id: "gen-15", name: "UTE Termopernambuco", type: "Térmica", state: "PE", municipality: "Ipojuca", capacityMW: 532, plantsCount: 1, status: "Ativo" }
+            { id: "gen-15", name: "UTE Termopernambuco", type: "Térmica", state: "PE", municipality: "Ipojuca", capacityMW: 532, plantsCount: 1, status: "Ativo" },
+            { id: "gen-16", name: "Sistemas de Bateria LFP Registro (CTEEP)", type: "Armazenamento", state: "SP", municipality: "Registro", capacityMW: 30, plantsCount: 1, status: "Ativo" },
+            { id: "gen-17", name: "Usina Hidrelétrica Reversível Cubatão", type: "Armazenamento", state: "SP", municipality: "Cubatão", capacityMW: 200, plantsCount: 1, status: "Ativo" },
+            { id: "gen-18", name: "Armazenamento de Baterias LFP Juazeiro", type: "Armazenamento", state: "BA", municipality: "Juazeiro", capacityMW: 50, plantsCount: 2, status: "Planejado" },
+            { id: "gen-19", name: "Subestação Sobradinho BESS (CHESF)", type: "Armazenamento", state: "BA", municipality: "Sobradinho", capacityMW: 20, plantsCount: 1, status: "Ativo" },
+            { id: "gen-20", name: "Sistemas Reversíveis Billings-Pedras", type: "Armazenamento", state: "SP", municipality: "São Bernardo do Campo", capacityMW: 100, plantsCount: 1, status: "Ativo" }
           ];
           setTreemapData(fallbackData);
         }
@@ -342,8 +494,231 @@ export default function SovereignEnergyHub() {
     loadGenerators();
   }, []);
 
+  // Building the Composite Tree using GoF Composite Pattern
+  const buildCompositeTree = (): EnergyComposite => {
+    const root = new EnergyComposite("root", "Brasil26 - Matriz de Soberania Nacional", "Brasil26_Matrix");
+
+    // 1. Group 1: Metas de Soberania Brasil26
+    const metasGroup = new EnergyComposite("metas", "Metas de Soberania Brasil26", "Metas");
+    metasGroup.add(new GeneratorLeaf({
+      id: "meta-1",
+      name: "Consumo Limpo: 20.000 kWh per capita",
+      type: "Meta",
+      state: "BR",
+      municipality: "Nacional (Metas de Energia)",
+      capacityMW: 20000,
+      plantsCount: 1,
+      status: "Planejado"
+    }));
+    metasGroup.add(new GeneratorLeaf({
+      id: "meta-2",
+      name: "Taxa SELIC: 1 Dígito (< 9%)",
+      type: "Meta",
+      state: "BR",
+      municipality: "Banco Central (Meta Monetária)",
+      capacityMW: 9000,
+      plantsCount: 1,
+      status: "Planejado"
+    }));
+    metasGroup.add(new GeneratorLeaf({
+      id: "meta-3",
+      name: "PIB de Alta Renda: US$ 130K per capita",
+      type: "Meta",
+      state: "BR",
+      municipality: "Economia (Meta Financeira)",
+      capacityMW: 130000,
+      plantsCount: 1,
+      status: "Planejado"
+    }));
+    root.add(metasGroup);
+
+    // 2. Group 2: Centralizada (Centralized ONS Matrix)
+    const centralGroup = new EnergyComposite("centralizada", "Matriz ONS Geração Centralizada", "Centralizada");
+    
+    // Create subcomposites for types
+    const hydroComposite = new EnergyComposite("hidreletrica", "Geração Hidrelétrica (UHE/PCH/CGH)", "Hidrelétrica");
+    const solarComposite = new EnergyComposite("solar_centralizada", "Geração Solar Centralizada (UFV)", "Solar");
+    const eolicaComposite = new EnergyComposite("eolica_centralizada", "Geração Eólica Centralizada (EOL)", "Eólica");
+    const termicaComposite = new EnergyComposite("termica_centralizada", "Geração Térmica (UTE/Biomassa)", "Térmica");
+
+    // Populate centralized composites from treemapData (only non-MMGD and non-Storage)
+    treemapData.forEach(node => {
+      if (node.name.startsWith("MMGD")) return;
+      if (node.type === "Armazenamento") return;
+      
+      const leaf = new GeneratorLeaf(node);
+      if (node.type === "Hidrelétrica") hydroComposite.add(leaf);
+      else if (node.type === "Solar") solarComposite.add(leaf);
+      else if (node.type === "Eólica") eolicaComposite.add(leaf);
+      else if (node.type === "Térmica") termicaComposite.add(leaf);
+    });
+
+    centralGroup.add(hydroComposite);
+    centralGroup.add(solarComposite);
+    centralGroup.add(eolicaComposite);
+    centralGroup.add(termicaComposite);
+    root.add(centralGroup);
+
+    // 3. Group 3: Descentralizada (MMGD Distributed Matrix)
+    const descentralizadaGroup = new EnergyComposite("descentralizada", "Micro e Minigeração Distribuída (MMGD)", "Descentralizada");
+    treemapData.forEach(node => {
+      if (node.name.startsWith("MMGD") && node.type !== "Armazenamento") {
+        descentralizadaGroup.add(new GeneratorLeaf(node));
+      }
+    });
+    
+    // Add MMGD Solar target of Brasil26
+    descentralizadaGroup.add(new GeneratorLeaf({
+      id: "mmgd-meta",
+      name: "Expansão de MMGD Solar Brasil26 (Proposta)",
+      type: "Solar",
+      state: "BR",
+      municipality: "Descentralizada",
+      capacityMW: 28000,
+      plantsCount: 2400000,
+      status: "Planejado"
+    }));
+
+    root.add(descentralizadaGroup);
+
+    // 4. Group 4: Sistemas de Armazenamento de Energia
+    const armazenamentoGroup = new EnergyComposite("armazenamento", "Sistemas de Armazenamento e Baterias", "Armazenamento");
+    
+    const lfpComposite = new EnergyComposite("lfp_bess", "Baterias LFP (Química/BESS)", "Armazenamento");
+    const reversivelComposite = new EnergyComposite("reversivel_storage", "Hidrelétricas Reversíveis (Mecânica)", "Armazenamento");
+
+    treemapData.forEach(node => {
+      if (node.type === "Armazenamento") {
+        const leaf = new GeneratorLeaf(node);
+        if (node.name.toLowerCase().includes("revers") || node.name.toLowerCase().includes("cubat")) {
+          reversivelComposite.add(leaf);
+        } else {
+          lfpComposite.add(leaf);
+        }
+      }
+    });
+
+    armazenamentoGroup.add(lfpComposite);
+    armazenamentoGroup.add(reversivelComposite);
+    root.add(armazenamentoGroup);
+
+    return root;
+  };
+
+  const findComponentById = (root: EnergyComponent, id: string): EnergyComponent | null => {
+    if (root.getId() === id) return root;
+    const children = root.getChildren();
+    for (const child of children) {
+      const found = findComponentById(child, id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const getLeavesOfNode = (node: EnergyComponent): GeneratorNode[] => {
+    if (node.isLeaf()) {
+      const leaf = node as GeneratorLeaf;
+      return [{
+        id: leaf.getId(),
+        name: leaf.getName(),
+        type: leaf.getType(),
+        state: leaf.state,
+        municipality: leaf.municipality,
+        capacityMW: leaf.getCapacity(),
+        plantsCount: leaf.getPlantsCount(),
+        status: leaf.status
+      }];
+    }
+    const results: GeneratorNode[] = [];
+    node.getChildren().forEach(child => {
+      results.push(...getLeavesOfNode(child));
+    });
+    return results;
+  };
+
+  // Find path of composite nodes from root to selected ID
+  const getCompositePath = (node: EnergyComponent, targetId: string, currentPath: EnergyComponent[] = []): EnergyComponent[] | null => {
+    if (node.getId() === targetId) {
+      return [...currentPath, node];
+    }
+    const children = node.getChildren();
+    for (const child of children) {
+      const path = getCompositePath(child, targetId, [...currentPath, node]);
+      if (path) return path;
+    }
+    return null;
+  };
+
+  // A helper function to render the GoF Composite Tree nodes recursively in the sidebar
+  const renderCompositeTreeNodes = (node: EnergyComponent, depth = 0): React.ReactNode => {
+    const isSelected = selectedCompositeId === node.getId();
+    const hasChildren = node.getChildren().length > 0;
+    
+    // Icon selection
+    let IconComponent = BookOpen;
+    if (node.getType() === "Brasil26_Matrix") IconComponent = Globe;
+    else if (node.getType() === "Metas") IconComponent = Sparkles;
+    else if (node.getType() === "Centralizada") IconComponent = Layers;
+    else if (node.getType() === "Descentralizada") IconComponent = Cpu;
+    else if (node.getType() === "Hidrelétrica") IconComponent = Activity;
+    else if (node.getType() === "Solar") IconComponent = Zap;
+    else if (node.getType() === "Eólica") IconComponent = TrendingUp;
+    else if (node.getType() === "Térmica") IconComponent = Sliders;
+    else if (node.getType() === "Armazenamento") IconComponent = Battery;
+    else if (node.getType() === "Meta") IconComponent = Check;
+
+    return (
+      <div key={node.getId()} className="space-y-1">
+        <button
+          onClick={() => {
+            setSelectedCompositeId(node.getId());
+            setSelectedNode(null);
+          }}
+          style={{ paddingLeft: `${depth * 14 + 10}px` }}
+          className={`w-full text-left py-2 pr-3 rounded-lg flex items-center justify-between transition-all group cursor-pointer border ${
+            isSelected 
+              ? "bg-emerald-500/10 border-emerald-500/20 text-slate-800" 
+              : "hover:bg-slate-100 border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            {depth > 0 && (
+              <span className="text-slate-300 font-mono text-[10px] select-none">├─</span>
+            )}
+            <IconComponent className={`h-4 w-4 shrink-0 ${isSelected ? "text-emerald-600" : "text-slate-400 group-hover:text-slate-600"}`} />
+            <span className={`text-xs truncate tracking-tight ${isSelected ? "font-bold text-emerald-950" : "font-medium"}`}>{node.getName()}</span>
+          </div>
+          
+          <div className="flex items-center gap-1.5 shrink-0 font-mono text-[9px] text-slate-400">
+            <span className={`${isSelected ? "text-emerald-700 font-bold" : ""}`}>
+              {node.getCapacity() >= 1000 
+                ? `${(node.getCapacity() / 1000).toLocaleString(undefined, {maximumFractionDigits:1})}k` 
+                : node.getCapacity().toLocaleString()} MW
+            </span>
+            {node.getPlantsCount() > 1 && (
+              <span className="bg-slate-200/60 px-1 rounded text-slate-500">
+                {node.getPlantsCount()}u
+              </span>
+            )}
+          </div>
+        </button>
+
+        {hasChildren && (
+          <div className="space-y-1">
+            {node.getChildren().map(child => renderCompositeTreeNodes(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filtered generators list for custom treemap
-  const filteredGenerators = treemapData.filter(node => {
+  const compositeTreeRoot = buildCompositeTree();
+  const currentCompositeNode = findComponentById(compositeTreeRoot, selectedCompositeId) || compositeTreeRoot;
+  const compositeLeaves = getLeavesOfNode(currentCompositeNode);
+  const activePath = getCompositePath(compositeTreeRoot, selectedCompositeId) || [compositeTreeRoot];
+
+  const filteredGenerators = compositeLeaves.filter(node => {
     const matchesSearch = node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           node.municipality.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = selectedTypeFilter === "Todos" || node.type === selectedTypeFilter;
@@ -353,7 +728,7 @@ export default function SovereignEnergyHub() {
 
   // Unique types and states in the dataset for dropdown filters
   const uniqueStates = ["Todos", ...Array.from(new Set(treemapData.map(g => g.state))).sort()];
-  const uniqueTypes = ["Todos", "Solar", "Eólica", "Hidrelétrica", "Térmica"];
+  const uniqueTypes = ["Todos", "Solar", "Eólica", "Hidrelétrica", "Térmica", "Armazenamento", "Meta"];
 
   // DREX Latency & Security measure trigger
   const runLatencyBenchmark = () => {
@@ -737,121 +1112,351 @@ export default function SovereignEnergyHub() {
             <div className="space-y-6" id="dashboard-operacional-treemap">
               <div className="border-b border-slate-100 pb-5">
                 <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider font-mono block mb-1">
-                  Dashboard Operacional Integrado
+                  Dashboard Operacional Integrado • Padrão GoF Composite
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <Globe className="h-6 w-6 text-emerald-600" />
-                  Mapeamento de Geradores ONS & ANEEL
+                  Mapeamento de Geradores ONS, ANEEL & Brasil26
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Consulte a base unificada de usinas geradoras brasileiras de Micro e Minigeração Distribuída (MMGD) e Centrais Geradoras de grande escala. Treemap dinâmico no estilo Finviz dimensionado por capacidade de potência nominal em Megawatts (MW).
+                  Consulte a base unificada de usinas geradoras brasileiras de Micro e Minigeração Distribuída (MMGD), Centrais de grande escala e as metas estruturais da iniciativa **Brasil26**. Toda a árvore de dados é modelada sob o padrão criativo <strong>GoF Composite Pattern</strong> para consolidação recursiva de capacidade.
                 </p>
               </div>
 
-              {/* Filtros e Busca */}
-              <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col md:flex-row items-center gap-4">
-                <div className="relative flex-1 w-full">
-                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar gerador por nome ou município..."
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-slate-400 text-slate-900 font-medium"
-                  />
-                </div>
+              {/* Main Dual-Column Composite Navigation Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* COLUMN 1: INTERACTIVE COMPOSITE TREE EXPLORER */}
+                <div className="lg:col-span-4 bg-slate-50 rounded-2xl border border-slate-200/60 p-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 border-b border-slate-200/60 pb-3 mb-4">
+                      <Layers className="h-4 w-4 text-indigo-600" />
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                        Estrutura Composite Grid
+                      </h4>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-500 leading-relaxed mb-4">
+                      Selecione qualquer nível de agrupamento abaixo para filtrar dinamicamente a representação gráfica no Treemap ao lado:
+                    </p>
 
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 font-mono font-bold whitespace-nowrap">Tipo:</span>
-                    <select
-                      value={selectedTypeFilter}
-                      onChange={(e) => setSelectedTypeFilter(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-slate-400 text-slate-800"
-                    >
-                      {uniqueTypes.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                    <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                      {renderCompositeTreeNodes(compositeTreeRoot)}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 font-mono font-bold whitespace-nowrap">Estado:</span>
-                    <select
-                      value={selectedStateFilter}
-                      onChange={(e) => setSelectedStateFilter(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-slate-400 text-slate-800"
+                  {/* Active node specifications */}
+                  <div className="mt-6 pt-4 border-t border-slate-200/80 bg-white p-3 rounded-xl border border-slate-100 space-y-2 text-[11px]">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Foco Atual:</span>
+                      <strong className="text-slate-900 truncate max-w-[150px]" title={currentCompositeNode.getName()}>
+                        {currentCompositeNode.getName()}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Capacidade Acumulada:</span>
+                      <strong className="text-indigo-600 font-mono">
+                        {currentCompositeNode.getCapacity().toLocaleString()} MW
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Usinas / Metas Consolidadas:</span>
+                      <strong className="text-slate-800 font-mono">
+                        {currentCompositeNode.getPlantsCount().toLocaleString()} un
+                      </strong>
+                    </div>
+                    {selectedCompositeId !== "root" && (
+                      <button
+                        onClick={() => {
+                          setSelectedCompositeId("root");
+                          setSelectedNode(null);
+                        }}
+                        className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold py-1.5 rounded-lg transition-all cursor-pointer text-center block"
+                      >
+                        Resetar para Matriz Completa
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Cadastrar Ativo de Energia / Armazenamento (Brasil26 Persistido) */}
+                  <div className="mt-4 bg-slate-50 border border-slate-200/60 rounded-xl p-3 space-y-3">
+                    <button
+                      onClick={() => setIsAddingAsset(!isAddingAsset)}
+                      className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider py-2 px-3 rounded-lg transition-all cursor-pointer shadow-sm"
                     >
-                      {uniqueStates.map(st => (
-                        <option key={st} value={st}>{st}</option>
-                      ))}
-                    </select>
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5" />
+                        Cadastrar Ativo de Energia
+                      </span>
+                      <span className="text-[9px] bg-emerald-800 text-emerald-100 px-1.5 py-0.5 rounded font-mono">
+                        {isAddingAsset ? "Fechar" : "Novo"}
+                      </span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isAddingAsset && (
+                        <motion.form
+                          onSubmit={handleAddAsset}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden space-y-2.5 pt-1 text-[11px]"
+                        >
+                          {assetSuccessMsg && (
+                            <div className="bg-emerald-100 border border-emerald-200 text-emerald-800 p-2 rounded-lg font-bold text-center animate-pulse">
+                              {assetSuccessMsg}
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nome do Ativo</label>
+                            <input
+                              type="text"
+                              required
+                              value={newAssetName}
+                              onChange={(e) => setNewAssetName(e.target.value)}
+                              placeholder="Ex: Complexo Solar Sol do Sertão"
+                              className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tipo</label>
+                              <select
+                                value={newAssetType}
+                                onChange={(e) => setNewAssetType(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-800 focus:outline-none focus:border-emerald-500"
+                              >
+                                <option value="Solar">Solar (UFV)</option>
+                                <option value="Eólica">Eólica (EOL)</option>
+                                <option value="Hidrelétrica">Hidrelétrica</option>
+                                <option value="Térmica">Térmica</option>
+                                <option value="Armazenamento">Armazenamento (BESS/LFP)</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Status</label>
+                              <select
+                                value={newAssetStatus}
+                                onChange={(e) => setNewAssetStatus(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-800 focus:outline-none focus:border-emerald-500"
+                              >
+                                <option value="Ativo">Ativo</option>
+                                <option value="Em Construção">Em Construção</option>
+                                <option value="Planejado">Planejado</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Estado (UF)</label>
+                              <input
+                                type="text"
+                                required
+                                maxLength={2}
+                                value={newAssetProvince}
+                                onChange={(e) => setNewAssetProvince(e.target.value.toUpperCase())}
+                                placeholder="Ex: SP, BA, MG"
+                                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 uppercase"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Município</label>
+                              <input
+                                type="text"
+                                required
+                                value={newAssetCity}
+                                onChange={(e) => setNewAssetCity(e.target.value)}
+                                placeholder="Ex: Juazeiro"
+                                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Potência (MW)</label>
+                              <input
+                                type="number"
+                                required
+                                min="0.1"
+                                step="any"
+                                value={newAssetCapacity}
+                                onChange={(e) => setNewAssetCapacity(e.target.value)}
+                                placeholder="Ex: 150"
+                                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Usinas (un)</label>
+                              <input
+                                type="number"
+                                required
+                                min="1"
+                                value={newAssetPlants}
+                                onChange={(e) => setNewAssetPlants(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-slate-800 focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={isSavingAsset}
+                            className="w-full mt-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {isSavingAsset ? (
+                              <>
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                                Persistindo Ativo...
+                              </>
+                            ) : (
+                              "Gravar Ativo na Rede Nacional"
+                            )}
+                          </button>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-              </div>
 
-              {/* Finviz-Style Treemap Grid */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-bold">
-                    Exibindo <strong className="text-slate-900">{filteredGenerators.length}</strong> geradores mapeados
-                  </span>
-                  <span className="text-slate-400 font-mono text-[10px]">Clique em qualquer bloco do Treemap para exibir os dados de telemetria e o rito regulatório</span>
-                </div>
-
-                <div className="min-h-[420px] bg-slate-950 rounded-2xl p-4 border border-slate-900 flex flex-wrap gap-2.5 items-stretch overflow-hidden select-none">
-                  {isLoadingTreemap ? (
-                    <div className="w-full flex flex-col items-center justify-center text-slate-400 gap-3">
-                      <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
-                      <span className="font-mono text-xs">Sincronizando base de dados ONS/ANEEL...</span>
-                    </div>
-                  ) : filteredGenerators.length === 0 ? (
-                    <div className="w-full flex items-center justify-center text-slate-500 italic text-xs">
-                      Nenhum gerador solar, eólico, hídrico ou térmico encontrado para estes parâmetros de busca.
-                    </div>
-                  ) : (
-                    // Elegant Native CSS grid box-sizing based on Capacity ratio
-                    filteredGenerators.map((node) => {
-                      // Basic logarithmic proportional width calculation for high-quality tree mapping
-                      const capacityFactor = Math.log(node.capacityMW + 2) / 6;
-                      const flexGrow = Math.max(1, Math.round(capacityFactor * 100));
-                      
-                      let colorClass = "bg-emerald-950 border-emerald-900 hover:border-emerald-700 text-emerald-300"; // Solar
-                      if (node.type === "Eólica") colorClass = "bg-sky-950 border-sky-900 hover:border-sky-700 text-sky-300";
-                      if (node.type === "Hidrelétrica") colorClass = "bg-blue-950 border-blue-900 hover:border-blue-700 text-blue-300";
-                      if (node.type === "Térmica") colorClass = "bg-amber-950 border-amber-900 hover:border-amber-700 text-amber-300";
-
-                      return (
-                        <div
-                          key={node.id}
-                          onClick={() => setSelectedNode(node)}
-                          style={{ flexGrow }}
-                          className={`min-w-[120px] p-3 rounded-xl border flex flex-col justify-between transition-all duration-200 cursor-pointer relative ${colorClass} ${
-                            selectedNode?.id === node.id ? "ring-2 ring-white scale-[1.01]" : ""
+                {/* COLUMN 2: TREEMAP AND FILTERS */}
+                <div className="lg:col-span-8 space-y-4">
+                  
+                  {/* Path Breadcrumbs */}
+                  <div className="flex items-center gap-1 bg-slate-100 px-3 py-2 rounded-xl text-[10px] text-slate-600 font-mono flex-wrap">
+                    <span className="text-slate-400 font-bold">Caminho:</span>
+                    {activePath.map((p, idx) => (
+                      <React.Fragment key={p.getId()}>
+                        {idx > 0 && <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />}
+                        <button
+                          onClick={() => {
+                            setSelectedCompositeId(p.getId());
+                            setSelectedNode(null);
+                          }}
+                          className={`font-bold hover:underline transition-all cursor-pointer ${
+                            p.getId() === selectedCompositeId ? "text-emerald-700 font-black" : "text-slate-600"
                           }`}
                         >
-                          <div>
-                            <div className="flex justify-between items-start gap-1">
-                              <span className="text-[8px] font-mono font-bold bg-black/30 px-1.5 py-0.5 rounded uppercase">
-                                {node.type}
-                              </span>
-                              <span className="text-[10px] font-mono font-bold">{node.state}</span>
-                            </div>
-                            <h5 className="text-xs font-black tracking-tight text-white mt-1.5 truncate max-w-[160px]" title={node.name}>
-                              {node.name}
-                            </h5>
-                            <span className="text-[9px] text-slate-300 font-semibold block">{node.municipality}</span>
-                          </div>
+                          {p.getName().split(" (")[0]}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  </div>
 
-                          <div className="mt-4 pt-1.5 border-t border-white/10 flex items-baseline justify-between text-[10px] font-mono">
-                            <span className="text-slate-400">Capacidade:</span>
-                            <span className="font-bold text-white">{node.capacityMW.toLocaleString()} MW</span>
-                          </div>
+                  {/* Filtros e Busca */}
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col sm:flex-row items-center gap-4">
+                    <div className="relative flex-1 w-full">
+                      <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Buscar gerador na categoria por nome..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-slate-400 text-slate-900 font-medium"
+                      />
+                    </div>
+
+                    <div className="flex flex-row gap-3 w-full sm:w-auto shrink-0 justify-end">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-mono font-bold whitespace-nowrap">Tipo:</span>
+                        <select
+                          value={selectedTypeFilter}
+                          onChange={(e) => setSelectedTypeFilter(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-slate-400 text-slate-800"
+                        >
+                          {uniqueTypes.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-mono font-bold whitespace-nowrap">UF:</span>
+                        <select
+                          value={selectedStateFilter}
+                          onChange={(e) => setSelectedStateFilter(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-slate-400 text-slate-800"
+                        >
+                          {uniqueStates.map(st => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Finviz-Style Treemap Grid */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold">
+                        Mostrando <strong className="text-slate-900">{filteredGenerators.length}</strong> itens no Treemap de <strong className="text-indigo-650">{currentCompositeNode.getName()}</strong>
+                      </span>
+                      <span className="text-slate-400 font-mono text-[10px] hidden md:inline">Clique para exibir metadados regulatórios</span>
+                    </div>
+
+                    <div className="min-h-[420px] bg-slate-950 rounded-2xl p-4 border border-slate-900 flex flex-wrap gap-2.5 items-stretch overflow-hidden select-none">
+                      {isLoadingTreemap ? (
+                        <div className="w-full flex flex-col items-center justify-center text-slate-400 gap-3">
+                          <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
+                          <span className="font-mono text-xs">Sincronizando base de dados ONS/ANEEL...</span>
                         </div>
-                      );
-                    })
-                  )}
+                      ) : filteredGenerators.length === 0 ? (
+                        <div className="w-full flex items-center justify-center text-slate-500 italic text-xs">
+                          Nenhum gerador solar, eólico, hídrico ou meta encontrado para estes parâmetros de busca neste nó.
+                        </div>
+                      ) : (
+                        filteredGenerators.map((node) => {
+                          // Proportional capacity-based scaling log-enhanced
+                          const capacityFactor = Math.log(node.capacityMW + 2) / 6;
+                          const flexGrow = Math.max(1, Math.round(capacityFactor * 100));
+                          
+                          let colorClass = "bg-emerald-950/90 border-emerald-900/60 hover:border-emerald-500 text-emerald-300"; // Solar
+                          if (node.type === "Eólica") colorClass = "bg-sky-950/90 border-sky-900/60 hover:border-sky-500 text-sky-300";
+                          if (node.type === "Hidrelétrica") colorClass = "bg-blue-950/90 border-blue-900/60 hover:border-blue-500 text-blue-300";
+                          if (node.type === "Térmica") colorClass = "bg-amber-950/90 border-amber-900/60 hover:border-amber-500 text-amber-300";
+                          if (node.type === "Meta") colorClass = "bg-indigo-950/90 border-indigo-900/80 hover:border-indigo-500 text-indigo-200";
+
+                          return (
+                            <div
+                              key={node.id}
+                              onClick={() => setSelectedNode(node)}
+                              style={{ flexGrow }}
+                              className={`min-w-[130px] p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-200 cursor-pointer relative ${colorClass} ${
+                                selectedNode?.id === node.id ? "ring-2 ring-white scale-[1.01]" : ""
+                              }`}
+                            >
+                              <div>
+                                <div className="flex justify-between items-start gap-1">
+                                  <span className="text-[8px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded uppercase">
+                                    {node.type}
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold">{node.state}</span>
+                                </div>
+                                <h5 className="text-xs font-black tracking-tight text-white mt-2 truncate max-w-[180px]" title={node.name}>
+                                  {node.name}
+                                </h5>
+                                <span className="text-[9px] text-slate-300 font-semibold block">{node.municipality}</span>
+                              </div>
+
+                              <div className="mt-4 pt-1.5 border-t border-white/10 flex items-baseline justify-between text-[10px] font-mono">
+                                <span className="text-slate-400">Capacidade:</span>
+                                <span className="font-bold text-white">{node.capacityMW.toLocaleString()} MW</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
                 </div>
+
               </div>
 
               {/* Generator Info Panel Overlay */}
